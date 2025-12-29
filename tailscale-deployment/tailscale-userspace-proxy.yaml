@@ -1,0 +1,109 @@
+# tailscale-proxy-with-caddy.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tailscale-proxy
+  namespace: default
+spec:
+  selector:
+    app: tailscale-proxy
+  ports:
+    - name: http-proxy
+      port: 1050  # Tailscale HTTP proxy 默认端口
+      targetPort: 1050
+    - name: socks5
+      port: 1055  # Tailscale SOCKS5 默认端口
+      targetPort: 1055
+    - name: caddy-http
+      port: 80
+      targetPort: 2015  # Caddy 默认端口（可后续调整）
+    - name: caddy-https
+      port: 443
+      targetPort: 2016
+  type: ClusterIP  # 仅集群内可访问
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tailscale-proxy
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tailscale-proxy
+  template:
+    metadata:
+      labels:
+        app: tailscale-proxy
+    spec:
+      serviceAccountName: tailscale  # 需要 RBAC（见下文）
+      containers:
+        # ===== Tailscale 用户空间代理容器 =====
+        - name: tailscale
+          image: tailscale/tailscale:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: tailscale-auth
+                  key: TS_AUTHKEY
+            - name: TS_STATE_DIR
+              value: /var/lib/tailscale
+            - name: TS_SOCKET
+              value: /var/run/tailscale/tailscaled.sock
+            - name: TS_USERSPACE
+              value: "true"   # 关键：启用用户空间模式
+            - name: TS_OUTBOUND_HTTP_PROXY_LISTEN
+              value: ":1050"  # HTTP 代理监听端口
+            - name: TS_SOCKS5_SERVER
+              value: ":1055"  # SOCKS5 代理监听端口
+            - name: TS_ACCEPT_DNS
+              value: "true"   # 可选：启用 MagicDNS
+          volumeMounts:
+            - name: tailscale-state
+              mountPath: /var/lib/tailscale
+            - name: tailscale-socket
+              mountPath: /var/run/tailscale
+          # 用户空间模式下无需特权
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+        # ===== Caddy 容器（用于你后续配置） =====
+        - name: caddy
+          image: caddy:2.8-alpine
+          ports:
+            - containerPort: 2015
+            - containerPort: 2016
+          volumeMounts:
+            - name: caddy-config
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+          # Caddy 将监听 2015（HTTP）和 2016（HTTPS），你可后续修改
+      volumes:
+        - name: tailscale-state
+          emptyDir: {}
+        - name: tailscale-socket
+          emptyDir: {}
+        - name: caddy-config
+          configMap:
+            name: caddy-config
+            optional: true  # 如果你稍后才创建 ConfigMap
+
+---
+# 可选：Caddy 的初始配置（空或简单占位）
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: caddy-config
+  namespace: default
+data:
+  Caddyfile: |
+    # 你稍后可以编辑此 ConfigMap
+    # 示例：
+    # :2015 {
+    #   respond "Hello from Caddy + Tailscale!"
+    # }
