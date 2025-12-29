@@ -102,8 +102,4 @@ metadata:
   namespace: default
 data:
   Caddyfile: |
-    # 你稍后可以编辑此 ConfigMap
-    # 示例：
-    # :2015 {
-    #   respond "Hello from Caddy + Tailscale!"
-    # }
+    # 留空，交给 Sidecar 服务填写
