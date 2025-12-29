@@ -7,18 +7,20 @@ set -e  # Exit on any error
 
 # Default values
 AUTH_KEY=""
+LOGIN_SERVER=""
 CLUSTER_CONTEXT=""
 USE_CONTEXT_FLAG=""
 VERBOSE=false
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 --authkey <TS_AUTHKEY> [--context <CLUSTER_CONTEXT>] [-v]"
+    echo "Usage: $0 --authkey <TS_AUTHKEY> [--login-server <LOGIN_SERVER_URL>] [--context <CLUSTER_CONTEXT>] [-v]"
     echo "  --authkey: Tailscale auth key (required)"
+    echo "  --login-server: Tailscale login server URL (optional, uses default if not specified)"
     echo "  --context: Kubernetes cluster context (optional, uses current context if not specified)"
     echo "  -v: Enable verbose output for debugging"
     echo ""
-    echo "Example: $0 --authkey tskey-1234567890 --context my-cluster-context -v"
+    echo "Example: $0 --authkey tskey-1234567890 --login-server https://my-login-server.example.com --context my-cluster-context -v"
     echo "Example without context (uses current context): $0 --authkey tskey-1234567890 -v"
     exit 1
 }
@@ -100,11 +102,43 @@ update_auth_secret() {
     kubectl apply -f "$TEMP_SECRET_FILE" $USE_CONTEXT_FLAG
 }
 
+# Function to update the userspace proxy file with TS_EXTRA_ARGS if login server is provided
+update_userspace_proxy() {
+    # Create TS_EXTRA_ARGS value if login server is provided
+    TS_EXTRA_ARGS_VALUE=""
+    if [[ -n "$LOGIN_SERVER" ]]; then
+        TS_EXTRA_ARGS_VALUE="--login-server=$LOGIN_SERVER"
+        verbose_log "Setting TS_EXTRA_ARGS to: $TS_EXTRA_ARGS_VALUE"
+    fi
+
+    # Create a temporary file with the updated userspace proxy
+    TEMP_PROXY_FILE=$(mktemp)
+    trap 'rm -f "$TEMP_PROXY_FILE"' RETURN
+
+    verbose_log "Created temporary file: $TEMP_PROXY_FILE"
+
+    # Copy the original userspace proxy file
+    cp tailscale-userspace-proxy.yaml "$TEMP_PROXY_FILE"
+
+    # Replace the placeholder with the actual value or empty if not provided
+    if [[ -n "$TS_EXTRA_ARGS_VALUE" ]]; then
+        verbose_log "Replacing TS_EXTRA_ARGS placeholder with: $TS_EXTRA_ARGS_VALUE"
+        sed -i "s|value: \"TS_EXTRA_ARGS_PLACEHOLDER\"|value: \"$TS_EXTRA_ARGS_VALUE\"|" "$TEMP_PROXY_FILE"
+    else
+        verbose_log "Removing TS_EXTRA_ARGS placeholder (using default empty value)"
+        # Remove the entire TS_EXTRA_ARGS environment variable entry
+        sed -i '/- name: TS_EXTRA_ARGS/,/value: "TS_EXTRA_ARGS_PLACEHOLDER"/d' "$TEMP_PROXY_FILE"
+    fi
+
+    verbose_log "Applying Tailscale userspace proxy..."
+    verbose_log "Running: kubectl apply -f $TEMP_PROXY_FILE $USE_CONTEXT_FLAG"
+    kubectl apply -f "$TEMP_PROXY_FILE" $USE_CONTEXT_FLAG
+}
+
 # Function to apply the userspace proxy
 apply_userspace_proxy() {
     echo "Applying Tailscale userspace proxy..."
-    verbose_log "Running: kubectl apply -f tailscale-userspace-proxy.yaml $USE_CONTEXT_FLAG"
-    kubectl apply -f tailscale-userspace-proxy.yaml $USE_CONTEXT_FLAG
+    update_userspace_proxy
 }
 
 # Function to display completion message
@@ -132,6 +166,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --authkey)
             AUTH_KEY="$2"
+            shift 2
+            ;;
+        --login-server)
+            LOGIN_SERVER="$2"
             shift 2
             ;;
         --context)
