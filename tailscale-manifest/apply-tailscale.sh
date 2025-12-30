@@ -102,6 +102,13 @@ update_auth_secret() {
     kubectl apply -f "$TEMP_SECRET_FILE" $USE_CONTEXT_FLAG
 }
 
+# Function to apply RBAC resources
+apply_rbac() {
+    echo "Applying Tailscale RBAC resources..."
+    verbose_log "Running: kubectl apply -f tailscale-rbac.yaml $USE_CONTEXT_FLAG"
+    kubectl apply -f tailscale-rbac.yaml $USE_CONTEXT_FLAG
+}
+
 # Function to update the extra args ConfigMap
 update_extra_args_configmap() {
     # Create TS_EXTRA_ARGS value if login server is provided
@@ -198,6 +205,7 @@ done
 validate_arguments
 validate_kubectl
 handle_kubernetes_context
+apply_rbac
 update_auth_secret
 apply_userspace_proxy
 display_completion_message
