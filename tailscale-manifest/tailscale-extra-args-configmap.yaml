@@ -7,4 +7,4 @@ metadata:
   labels:
     name: k8s-cross-cluster
 data:
-  TS_EXTRA_ARGS: ""  # Will be set by the script if login server is provided
+  TS_EXTRA_ARGS: ""  # 由脚本替换为 --login-server 参数，以指定服务端入口
