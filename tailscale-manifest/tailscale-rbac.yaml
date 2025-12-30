@@ -1,0 +1,31 @@
+# tailscale-rbac.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tailscale
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tailscale
+  namespace: default
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["tailscale"]
+    verbs: ["get", "update", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tailscale
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: tailscale
+    namespace: default
+roleRef:
+  kind: Role
+  name: tailscale
+  apiGroup: rbac.authorization.k8s.io
