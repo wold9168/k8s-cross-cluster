@@ -4,12 +4,16 @@ kind: ServiceAccount
 metadata:
   name: tailscale
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: tailscale
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -21,6 +25,8 @@ kind: RoleBinding
 metadata:
   name: tailscale
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 subjects:
   - kind: ServiceAccount
     name: tailscale

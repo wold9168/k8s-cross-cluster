@@ -4,5 +4,7 @@ kind: ConfigMap
 metadata:
   name: tailscale-extra-args
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 data:
   TS_EXTRA_ARGS: ""  # Will be set by the script if login server is provided

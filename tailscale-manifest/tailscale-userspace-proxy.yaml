@@ -5,6 +5,8 @@ kind: Service
 metadata:
   name: tailscale-proxy
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 spec:
   selector:
     app: tailscale-proxy
@@ -28,6 +30,8 @@ kind: Deployment
 metadata:
   name: tailscale-proxy
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 spec:
   replicas: 1
   selector:
@@ -105,6 +109,8 @@ kind: ConfigMap
 metadata:
   name: caddy-config
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 data:
   Caddyfile: |
     # 留空，交给 Sidecar 服务填写
