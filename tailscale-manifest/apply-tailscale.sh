@@ -102,8 +102,8 @@ update_auth_secret() {
     kubectl apply -f "$TEMP_SECRET_FILE" $USE_CONTEXT_FLAG
 }
 
-# Function to update the userspace proxy file with TS_EXTRA_ARGS if login server is provided
-update_userspace_proxy() {
+# Function to update the extra args ConfigMap
+update_extra_args_configmap() {
     # Create TS_EXTRA_ARGS value if login server is provided
     TS_EXTRA_ARGS_VALUE=""
     if [[ -n "$LOGIN_SERVER" ]]; then
@@ -111,28 +111,32 @@ update_userspace_proxy() {
         verbose_log "Setting TS_EXTRA_ARGS to: $TS_EXTRA_ARGS_VALUE"
     fi
 
-    # Create a temporary file with the updated userspace proxy
-    TEMP_PROXY_FILE=$(mktemp)
-    trap 'rm -f "$TEMP_PROXY_FILE"' RETURN
+    # Create a temporary file with the updated ConfigMap
+    TEMP_CONFIGMAP_FILE=$(mktemp)
+    trap 'rm -f "$TEMP_CONFIGMAP_FILE"' RETURN
 
-    verbose_log "Created temporary file: $TEMP_PROXY_FILE"
+    verbose_log "Created temporary file: $TEMP_CONFIGMAP_FILE"
 
-    # Copy the original userspace proxy file
-    cp tailscale-userspace-proxy.yaml "$TEMP_PROXY_FILE"
+    # Copy the original ConfigMap file
+    cp tailscale-extra-args-configmap.yaml "$TEMP_CONFIGMAP_FILE"
 
-    # Replace the placeholder with the actual value or empty if not provided
-    if [[ -n "$TS_EXTRA_ARGS_VALUE" ]]; then
-        verbose_log "Replacing TS_EXTRA_ARGS placeholder with: $TS_EXTRA_ARGS_VALUE"
-        sed -i "s|value: \"TS_EXTRA_ARGS_PLACEHOLDER\"|value: \"$TS_EXTRA_ARGS_VALUE\"|" "$TEMP_PROXY_FILE"
-    else
-        verbose_log "Removing TS_EXTRA_ARGS placeholder (using default empty value)"
-        # Remove the entire TS_EXTRA_ARGS environment variable entry
-        sed -i '/- name: TS_EXTRA_ARGS/,/value: "TS_EXTRA_ARGS_PLACEHOLDER"/d' "$TEMP_PROXY_FILE"
-    fi
+    # Replace the empty value with the actual value
+    sed -i "s|TS_EXTRA_ARGS: \"\"|TS_EXTRA_ARGS: \"$TS_EXTRA_ARGS_VALUE\"|" "$TEMP_CONFIGMAP_FILE"
 
+    verbose_log "Applying Tailscale extra args ConfigMap..."
+    verbose_log "Running: kubectl apply -f $TEMP_CONFIGMAP_FILE $USE_CONTEXT_FLAG"
+    kubectl apply -f "$TEMP_CONFIGMAP_FILE" $USE_CONTEXT_FLAG
+}
+
+# Function to update the userspace proxy file
+update_userspace_proxy() {
+    # First update the extra args ConfigMap
+    update_extra_args_configmap
+
+    # Then apply the userspace proxy manifest (no modifications needed to it now)
     verbose_log "Applying Tailscale userspace proxy..."
-    verbose_log "Running: kubectl apply -f $TEMP_PROXY_FILE $USE_CONTEXT_FLAG"
-    kubectl apply -f "$TEMP_PROXY_FILE" $USE_CONTEXT_FLAG
+    verbose_log "Running: kubectl apply -f tailscale-userspace-proxy.yaml $USE_CONTEXT_FLAG"
+    kubectl apply -f tailscale-userspace-proxy.yaml $USE_CONTEXT_FLAG
 }
 
 # Function to apply the userspace proxy

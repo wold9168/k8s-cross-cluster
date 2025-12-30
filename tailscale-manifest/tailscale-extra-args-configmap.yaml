@@ -1,0 +1,8 @@
+# tailscale-extra-args-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tailscale-extra-args
+  namespace: default
+data:
+  TS_EXTRA_ARGS: ""  # Will be set by the script if login server is provided

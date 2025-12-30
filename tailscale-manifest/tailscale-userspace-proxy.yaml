@@ -51,7 +51,10 @@ spec:
                   name: tailscale-auth
                   key: TS_AUTHKEY
             - name: TS_EXTRA_ARGS
-              value: "TS_EXTRA_ARGS_PLACEHOLDER"  # This will be replaced by the script if login server is provided
+              valueFrom:
+                configMapKeyRef:
+                  name: tailscale-extra-args
+                  key: TS_EXTRA_ARGS
             - name: TS_STATE_DIR
               value: /var/lib/tailscale
             - name: TS_SOCKET
