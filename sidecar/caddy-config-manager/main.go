@@ -34,7 +34,7 @@ func main() {
 			// TODO: 添加事前的鉴权检查，应该直接检查当前鉴权上下文是否支持读写 ConfigMaps
 		}
 		// 打印当前集群中 configMaps 的总数
-		klog.Info("There are %d configMaps in the cluster\n", len(configMaps.Items))
+		klog.Infof("There are %d configMaps in the cluster\n", len(configMaps.Items))
 
 		// 演示如何处理特定 configMap 获取操作中的错误：
 		// 尝试从 "default" 命名空间中获取名为 "example-xxxxx" 的 configMap
