@@ -26,7 +26,7 @@ func main() {
 
 	for {
 		// 调用 CoreV1 API 的 ConfigMaps 接口，在所有命名空间（传入空字符串 "" 表示全部）中列出 configMaps
-		configMaps, err := clientset.CoreV1().ConfigMaps("").List(context.TODO(), metav1.ListOptions{})
+		configMaps, err := GetConfigMap(clientset)
 		if err != nil {
 			// 若 List 请求失败（如权限不足、API 不可用等），则 panic
 			klog.Error("Requesting configMaps failed due to", err.Error())
