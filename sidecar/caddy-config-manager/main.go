@@ -1,11 +1,8 @@
 package main
 
 import (
-	"context"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
@@ -36,23 +33,12 @@ func main() {
 		// 打印当前集群中 configMaps 的总数
 		klog.Infof("There are %d configMaps in the cluster\n", len(configMaps.Items))
 
-		// 演示如何处理特定 configMap 获取操作中的错误：
-		// 尝试从 "default" 命名空间中获取名为 "example-xxxxx" 的 configMap
-		var namespace = "default"
-		var configMapName = "example"
-		_, err = clientset.CoreV1().ConfigMaps(namespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
-		// 如果错误是“未找到”（HTTP 404），则说明该 configMap 不存在
-		if errors.IsNotFound(err) {
-			klog.Error("ConfigMap example-xxxxx not found in default namespace\n")
-		} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
-			// 如果错误是 Kubernetes API 返回的状态错误（如 403、500 等），则提取详细错误信息
-			klog.Errorf("Error getting configMap %v\n", statusError.ErrStatus.Message)
-		} else if err != nil {
-			// 其他非 nil 错误（如网络问题、上下文取消等），直接 panic
-			panic(err.Error())
-		} else {
-			// 如果无错误，说明成功获取到 configMap
-			klog.Error("Found example-xxxxx configMap in default namespace\n")
+		// 获取当前命名空间中的特定 ConfigMap
+		configMapName := "example"
+		_, err = GetSpecificConfigMapInCurrentNamespace(clientset, configMapName)
+		if err != nil {
+			// 如果获取 ConfigMap 失败，记录错误但不 panic，继续执行
+			klog.Errorf("Failed to get ConfigMap %s: %v\n", configMapName, err)
 		}
 
 		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
