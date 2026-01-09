@@ -22,16 +22,7 @@ func main() {
 	}
 
 	for {
-		// 调用 CoreV1 API 的 ConfigMaps 接口，在所有命名空间（传入空字符串 "" 表示全部）中列出 configMaps
-		configMaps, err := GetConfigMap(clientset)
-		if err != nil {
-			// 若 List 请求失败（如权限不足、API 不可用等），则 panic
-			klog.Error("Requesting configMaps failed due to", err.Error())
-			panic(err.Error())
-			// TODO: 添加事前的鉴权检查，应该直接检查当前鉴权上下文是否支持读写 ConfigMaps
-		}
-		// 打印当前集群中 configMaps 的总数
-		klog.Infof("There are %d configMaps in the cluster\n", len(configMaps.Items))
+		// TODO: 添加事前的鉴权检查，应该直接检查当前鉴权上下文是否支持读写 ConfigMaps
 
 		// 获取当前命名空间中的特定 ConfigMap
 		configMapName := "example"
