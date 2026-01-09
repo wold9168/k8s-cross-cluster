@@ -41,6 +41,14 @@ func main() {
 			klog.Errorf("Failed to get ConfigMap %s: %v\n", configMapName, err)
 		}
 
+		// 获取当前集群指定命名空间的 Service
+
+		// 根据 Service 生成对应的跨集群访问域名
+
+		// 根据跨集群访问域名生成对应的 ConfigMap
+
+		// 将 ConfigMap 写入到集群中
+
 		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
 		time.Sleep(10 * time.Second)
 	}
