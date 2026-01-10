@@ -50,11 +50,22 @@ func main() {
 			for _, remoteDomain := range remoteDomains {
 				klog.Infof("Remote domain: %s -> Local domain: %s\n", remoteDomain, domainMapping[remoteDomain])
 			}
+
+			// 根据跨集群访问域名生成对应的 ConfigMap
+			caddyConfig := GenerateCaddyConfig(remoteDomains, domainMapping)
+
+			// 将 ConfigMap 写入到集群中
+			targetNamespace, nsErr := getCurrentNamespace()
+			if nsErr != nil {
+				klog.Warningf("Could not determine current namespace: %v", nsErr)
+				targetNamespace = "unknown"
+			}
+			klog.Infof("Writing Caddy config to namespace '%s':\n%s", targetNamespace, caddyConfig)
+			err = UpdateCaddyConfigMap(clientset, nil, caddyConfig)
+			if err != nil {
+				klog.Errorf("Failed to update Caddy ConfigMap: %v", err)
+			}
 		}
-
-		// 根据跨集群访问域名生成对应的 ConfigMap
-
-		// 将 ConfigMap 写入到集群中
 
 		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
 		time.Sleep(10 * time.Second)
