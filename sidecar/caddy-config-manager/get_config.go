@@ -2,18 +2,28 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"path/filepath"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"k8s.io/klog/v2"
 )
 
 func GetConfig() (config *rest.Config, err error) {
-	config, err = GetConfigInCluster()
-	if err != nil {
-		config, err = GetConfigOutOfCluster()
+	var inClusterErr, outOfClusterErr error
+
+	config, inClusterErr = GetConfigInCluster()
+	if inClusterErr != nil {
+		klog.Infof("GetConfigInCluster() failed: %v, try GetConfigOutOfCluster() now.",inClusterErr)
+		config, outOfClusterErr = GetConfigOutOfCluster()
+		if outOfClusterErr != nil {
+			err = fmt.Errorf("GetConfigInCluster() failed: %v; GetConfigOutOfCluster() failed: %v", inClusterErr, outOfClusterErr)
+			return nil, err
+		}
 	}
+	klog.Info("GetConfigInCluster() succeeded, pass GetConfigOutOfCluster()")
 	return
 }
 
