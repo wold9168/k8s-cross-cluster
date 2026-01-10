@@ -139,3 +139,92 @@ func TestGetAllServicesInCurrentNamespace_Empty(t *testing.T) {
 		t.Errorf("Expected 0 Services, got: %d", len(serviceList.Items))
 	}
 }
+
+func TestGenerateCrossClusterServiceDomains(t *testing.T) {
+	namespace := "test-ns"
+	serviceList := &v1.ServiceList{
+		Items: []v1.Service{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: namespace,
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service2",
+					Namespace: namespace,
+				},
+			},
+		},
+	}
+
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(serviceList)
+
+	if len(remoteDomains) != 2 {
+		t.Errorf("Expected 2 remote domains, got: %d", len(remoteDomains))
+	}
+
+	if len(domainMapping) != 2 {
+		t.Errorf("Expected 2 domain mappings, got: %d", len(domainMapping))
+	}
+
+	expectedRemote1 := "service1.test-ns.svc.clusterwise.remote"
+	expectedLocal1 := "service1.test-ns.svc.cluster.local"
+	expectedRemote2 := "service2.test-ns.svc.clusterwise.remote"
+	expectedLocal2 := "service2.test-ns.svc.cluster.local"
+
+	foundRemote1 := false
+	foundRemote2 := false
+
+	for _, domain := range remoteDomains {
+		if domain == expectedRemote1 {
+			foundRemote1 = true
+		}
+		if domain == expectedRemote2 {
+			foundRemote2 = true
+		}
+	}
+
+	if !foundRemote1 {
+		t.Errorf("Expected to find remote domain: %s", expectedRemote1)
+	}
+	if !foundRemote2 {
+		t.Errorf("Expected to find remote domain: %s", expectedRemote2)
+	}
+
+	if domainMapping[expectedRemote1] != expectedLocal1 {
+		t.Errorf("Expected mapping %s -> %s, got: %s", expectedRemote1, expectedLocal1, domainMapping[expectedRemote1])
+	}
+	if domainMapping[expectedRemote2] != expectedLocal2 {
+		t.Errorf("Expected mapping %s -> %s, got: %s", expectedRemote2, expectedLocal2, domainMapping[expectedRemote2])
+	}
+}
+
+func TestGenerateCrossClusterServiceDomains_Nil(t *testing.T) {
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(nil)
+
+	if len(remoteDomains) != 0 {
+		t.Errorf("Expected 0 remote domains, got: %d", len(remoteDomains))
+	}
+
+	if len(domainMapping) != 0 {
+		t.Errorf("Expected 0 domain mappings, got: %d", len(domainMapping))
+	}
+}
+
+func TestGenerateCrossClusterServiceDomains_Empty(t *testing.T) {
+	serviceList := &v1.ServiceList{
+		Items: []v1.Service{},
+	}
+
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(serviceList)
+
+	if len(remoteDomains) != 0 {
+		t.Errorf("Expected 0 remote domains, got: %d", len(remoteDomains))
+	}
+
+	if len(domainMapping) != 0 {
+		t.Errorf("Expected 0 domain mappings, got: %d", len(domainMapping))
+	}
+}
