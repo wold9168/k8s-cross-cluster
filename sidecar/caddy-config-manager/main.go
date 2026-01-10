@@ -32,7 +32,14 @@ func main() {
 			klog.Errorf("Failed to get ConfigMap %s: %v\n", configMapName, err)
 		}
 
-		// 获取当前集群指定命名空间的 Service
+		// 获取当前命名空间中的特定 Service
+		serviceName := "example-service"
+		_, err = GetSpecificServiceInCurrentNamespace(clientset, serviceName)
+		if err != nil {
+			// 如果获取 Service 失败，记录错误但不 panic，继续执行
+			klog.Errorf("Failed to get Service %s: %v\n", serviceName, err)
+		}
+
 
 		// 根据 Service 生成对应的跨集群访问域名
 
