@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"testing"
 
 	"k8s.io/api/core/v1"
@@ -226,5 +227,113 @@ func TestGenerateCrossClusterServiceDomains_Empty(t *testing.T) {
 
 	if len(domainMapping) != 0 {
 		t.Errorf("Expected 0 domain mappings, got: %d", len(domainMapping))
+	}
+}
+
+func TestGenerateCaddyConfig(t *testing.T) {
+	remoteDomains := []string{
+		"service1.test-ns.svc.clusterwise.remote",
+		"service2.test-ns.svc.clusterwise.remote",
+	}
+	domainMapping := map[string]string{
+		"service1.test-ns.svc.clusterwise.remote": "service1.test-ns.svc.cluster.local",
+		"service2.test-ns.svc.clusterwise.remote": "service2.test-ns.svc.cluster.local",
+	}
+
+	config := GenerateCaddyConfig(remoteDomains, domainMapping)
+
+	expected := `service1.test-ns.svc.clusterwise.remote {
+    reverse_proxy service1.test-ns.svc.cluster.local
+}
+service2.test-ns.svc.clusterwise.remote {
+    reverse_proxy service2.test-ns.svc.cluster.local
+}
+`
+
+	if config != expected {
+		t.Errorf("Expected config:\n%s\nGot:\n%s", expected, config)
+	}
+}
+
+func TestGenerateCaddyConfig_Empty(t *testing.T) {
+	remoteDomains := []string{}
+	domainMapping := map[string]string{}
+
+	config := GenerateCaddyConfig(remoteDomains, domainMapping)
+
+	if config != "" {
+		t.Errorf("Expected empty config, got: %s", config)
+	}
+}
+
+func TestGenerateCaddyConfig_MissingMapping(t *testing.T) {
+	remoteDomains := []string{
+		"service1.test-ns.svc.clusterwise.remote",
+	}
+	domainMapping := map[string]string{} // 空映射
+
+	config := GenerateCaddyConfig(remoteDomains, domainMapping)
+
+	if config != "" {
+		t.Errorf("Expected empty config due to missing mapping, got: %s", config)
+	}
+}
+
+func TestUpdateCaddyConfigMap_Create(t *testing.T) {
+	namespace := "test-ns"
+	clientset := fake.NewSimpleClientset()
+	caddyConfig := "service1.test-ns.svc.clusterwise.remote {\n    reverse_proxy service1.test-ns.svc.cluster.local\n}\n"
+
+	err := UpdateCaddyConfigMap(clientset, &namespace, caddyConfig)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	// 验证 ConfigMap 是否已创建
+	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), caddyConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Failed to get ConfigMap: %v", err)
+	}
+
+	if cm.Data[caddyConfigKey] != caddyConfig {
+		t.Errorf("Expected Caddyfile content: %s, got: %s", caddyConfig, cm.Data[caddyConfigKey])
+	}
+}
+
+func TestUpdateCaddyConfigMap_Update(t *testing.T) {
+	namespace := "test-ns"
+	existingConfig := "old config"
+	clientset := fake.NewSimpleClientset(
+		&v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      caddyConfigMapName,
+				Namespace: namespace,
+			},
+			Data: map[string]string{
+				caddyConfigKey: existingConfig,
+			},
+		},
+	)
+	newConfig := "service1.test-ns.svc.clusterwise.remote {\n    reverse_proxy service1.test-ns.svc.cluster.local\n}\n"
+
+	err := UpdateCaddyConfigMap(clientset, &namespace, newConfig)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	// 验证 ConfigMap 是否已更新
+	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), caddyConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Failed to get ConfigMap: %v", err)
+	}
+
+	if cm.Data[caddyConfigKey] != newConfig {
+		t.Errorf("Expected Caddyfile content: %s, got: %s", newConfig, cm.Data[caddyConfigKey])
+	}
+
+	if cm.Data[caddyConfigKey] == existingConfig {
+		t.Errorf("ConfigMap was not updated, still has old config")
 	}
 }
