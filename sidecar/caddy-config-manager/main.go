@@ -44,10 +44,13 @@ func main() {
 			for _, svc := range serviceList.Items {
 				klog.Infof("Successfully retrieved Service: %s\n", svc.Name)
 			}
+
+			// 根据 Service 生成对应的跨集群访问域名
+			remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(serviceList)
+			for _, remoteDomain := range remoteDomains {
+				klog.Infof("Remote domain: %s -> Local domain: %s\n", remoteDomain, domainMapping[remoteDomain])
+			}
 		}
-
-
-		// 根据 Service 生成对应的跨集群访问域名
 
 		// 根据跨集群访问域名生成对应的 ConfigMap
 
