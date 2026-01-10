@@ -1,0 +1,10 @@
+# tailscale-extra-args-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tailscale-extra-args
+  namespace: default
+  labels:
+    name: k8s-cross-cluster
+data:
+  TS_EXTRA_ARGS: ""  # 由脚本替换为 --login-server 参数，以指定服务端入口

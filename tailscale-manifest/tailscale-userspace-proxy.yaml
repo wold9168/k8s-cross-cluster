@@ -5,6 +5,8 @@ kind: Service
 metadata:
   name: tailscale-proxy
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 spec:
   selector:
     app: tailscale-proxy
@@ -28,6 +30,8 @@ kind: Deployment
 metadata:
   name: tailscale-proxy
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 spec:
   replicas: 1
   selector:
@@ -38,7 +42,7 @@ spec:
       labels:
         app: tailscale-proxy
     spec:
-      serviceAccountName: tailscale  # 需要 RBAC（见下文）
+      serviceAccountName: tailscale  # 需要 RBAC
       containers:
         # ===== Tailscale 用户空间代理容器 =====
         - name: tailscale
@@ -48,14 +52,19 @@ spec:
             - name: TS_AUTHKEY
               valueFrom:
                 secretKeyRef:
-                  name: tailscale-auth
+                  name: tailscale
                   key: TS_AUTHKEY
+            - name: TS_EXTRA_ARGS
+              valueFrom:
+                configMapKeyRef:
+                  name: tailscale-extra-args
+                  key: TS_EXTRA_ARGS
             - name: TS_STATE_DIR
               value: /var/lib/tailscale
             - name: TS_SOCKET
               value: /var/run/tailscale/tailscaled.sock
             - name: TS_USERSPACE
-              value: "true"   # 关键：启用用户空间模式
+              value: "true"   # 启用用户空间模式
             - name: TS_OUTBOUND_HTTP_PROXY_LISTEN
               value: ":1050"  # HTTP 代理监听端口
             - name: TS_SOCKS5_SERVER
@@ -72,7 +81,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-        # ===== Caddy 容器（用于你后续配置） =====
+        # ===== Caddy 容器 =====
         - name: caddy
           image: caddy:2.8-alpine
           ports:
@@ -82,7 +91,7 @@ spec:
             - name: caddy-config
               mountPath: /etc/caddy/Caddyfile
               subPath: Caddyfile
-          # Caddy 将监听 2015（HTTP）和 2016（HTTPS），你可后续修改
+          # Caddy 将监听 2015（HTTP）和 2016（HTTPS）
       volumes:
         - name: tailscale-state
           emptyDir: {}
@@ -91,19 +100,17 @@ spec:
         - name: caddy-config
           configMap:
             name: caddy-config
-            optional: true  # 如果你稍后才创建 ConfigMap
+            optional: true
 
 ---
-# 可选：Caddy 的初始配置（空或简单占位）
+# Caddy 的初始配置（空或简单占位）
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: caddy-config
   namespace: default
+  labels:
+    name: k8s-cross-cluster
 data:
   Caddyfile: |
-    # 你稍后可以编辑此 ConfigMap
-    # 示例：
-    # :2015 {
-    #   respond "Hello from Caddy + Tailscale!"
-    # }
+    # 留空，交给 Sidecar 服务填写
