@@ -11,13 +11,13 @@ func main() {
 	// Authentication
 	config, err := GetConfig()
 	if err != nil {
-		klog.Error("Authentication failed due to", err.Error())
+		klog.Error("Authentication failed due to ", err.Error())
 		panic(err.Error())
 	}
 	// 使用上述配置创建一个 Kubernetes 客户端集（clientset），可用于访问所有 Kubernetes API 组
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		klog.Error("Creating clientset failed due to", err.Error())
+		klog.Error("Creating clientset failed due to ", err.Error())
 		panic(err.Error())
 	}
 
