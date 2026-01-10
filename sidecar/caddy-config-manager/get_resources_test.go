@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetAllConfigMapsInCurrentNamespace(t *testing.T) {
-	// 创建fake clientset
+	// Create fake clientset
 	namespace := "test-ns"
 	clientset := fake.NewSimpleClientset(
 		&v1.ConfigMap{
@@ -27,10 +27,10 @@ func TestGetAllConfigMapsInCurrentNamespace(t *testing.T) {
 		},
 	)
 
-	// 调用函数，传入namespace参数
+	// Call the function with namespace parameter
 	configMapList, err := GetAllConfigMapsInCurrentNamespace(clientset, &namespace)
 
-	// 验证结果
+	// Verify results
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestGetAllConfigMapsInCurrentNamespace(t *testing.T) {
 		t.Errorf("Expected 2 ConfigMaps, got: %d", len(configMapList.Items))
 	}
 
-	// 验证ConfigMap名称
+	// Verify ConfigMap names
 	names := []string{configMapList.Items[0].Name, configMapList.Items[1].Name}
 	if names[0] != "configmap1" && names[1] != "configmap1" {
 		t.Errorf("Expected configmap1 in the list, got: %v", names)
@@ -54,14 +54,14 @@ func TestGetAllConfigMapsInCurrentNamespace(t *testing.T) {
 }
 
 func TestGetAllConfigMapsInCurrentNamespace_Empty(t *testing.T) {
-	// 创建空的fake clientset
+	// Create empty fake clientset
 	namespace := "test-ns"
 	clientset := fake.NewSimpleClientset()
 
-	// 调用函数，传入namespace参数
+	// Call the function with namespace parameter
 	configMapList, err := GetAllConfigMapsInCurrentNamespace(clientset, &namespace)
 
-	// 验证结果
+	// Verify results
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestGetAllConfigMapsInCurrentNamespace_Empty(t *testing.T) {
 }
 
 func TestGetAllServicesInCurrentNamespace(t *testing.T) {
-	// 创建fake clientset
+	// Create fake clientset
 	namespace := "test-ns"
 	clientset := fake.NewSimpleClientset(
 		&v1.Service{
@@ -93,10 +93,10 @@ func TestGetAllServicesInCurrentNamespace(t *testing.T) {
 		},
 	)
 
-	// 调用函数，传入namespace参数
+	// Call the function with namespace parameter
 	serviceList, err := GetAllServicesInCurrentNamespace(clientset, &namespace)
 
-	// 验证结果
+	// Verify results
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestGetAllServicesInCurrentNamespace(t *testing.T) {
 		t.Errorf("Expected 2 Services, got: %d", len(serviceList.Items))
 	}
 
-	// 验证Service名称
+	// Verify Service names
 	names := []string{serviceList.Items[0].Name, serviceList.Items[1].Name}
 	if names[0] != "service1" && names[1] != "service1" {
 		t.Errorf("Expected service1 in the list, got: %v", names)
@@ -120,14 +120,14 @@ func TestGetAllServicesInCurrentNamespace(t *testing.T) {
 }
 
 func TestGetAllServicesInCurrentNamespace_Empty(t *testing.T) {
-	// 创建空的fake clientset
+	// Create empty fake clientset
 	namespace := "test-ns"
 	clientset := fake.NewSimpleClientset()
 
-	// 调用函数，传入namespace参数
+	// Call the function with namespace parameter
 	serviceList, err := GetAllServicesInCurrentNamespace(clientset, &namespace)
 
-	// 验证结果
+	// Verify results
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestGenerateCaddyConfig_MissingMapping(t *testing.T) {
 	remoteDomains := []string{
 		"service1.test-ns.svc.clusterwise.remote",
 	}
-	domainMapping := map[string]string{} // 空映射
+	domainMapping := map[string]string{} // Empty mapping
 
 	config := GenerateCaddyConfig(remoteDomains, domainMapping)
 
@@ -290,7 +290,7 @@ func TestUpdateCaddyConfigMap_Create(t *testing.T) {
 		t.Errorf("Expected no error, got: %v", err)
 	}
 
-	// 验证 ConfigMap 是否已创建
+	// Verify ConfigMap was created
 	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), caddyConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get ConfigMap: %v", err)
@@ -323,7 +323,7 @@ func TestUpdateCaddyConfigMap_Update(t *testing.T) {
 		t.Errorf("Expected no error, got: %v", err)
 	}
 
-	// 验证 ConfigMap 是否已更新
+	// Verify ConfigMap was updated
 	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), caddyConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get ConfigMap: %v", err)
@@ -335,5 +335,31 @@ func TestUpdateCaddyConfigMap_Update(t *testing.T) {
 
 	if cm.Data[caddyConfigKey] == existingConfig {
 		t.Errorf("ConfigMap was not updated, still has old config")
+	}
+}
+
+func TestCheckPermissions(t *testing.T) {
+	namespace := "test-ns"
+	clientset := fake.NewSimpleClientset()
+
+	// This test will fail because fake clientset does not support SelfSubjectAccessReview
+	// In production, use mock or integration tests
+	err := CheckPermissions(clientset, &namespace)
+	
+	// Expected to return error because fake clientset does not support AuthorizationV1 API
+	if err == nil {
+		t.Errorf("Expected error from fake clientset, got nil")
+	}
+}
+
+func TestCheckPermissions_NilNamespace(t *testing.T) {
+	clientset := fake.NewSimpleClientset()
+
+	// Test nil namespace parameter, should use default namespace retrieval logic
+	err := CheckPermissions(clientset, nil)
+	
+	// Expected to return error because fake clientset does not support AuthorizationV1 API
+	if err == nil {
+		t.Errorf("Expected error from fake clientset, got nil")
 	}
 }
