@@ -22,7 +22,12 @@ func main() {
 	}
 
 	for {
-		// TODO: 添加事前的鉴权检查，应该直接检查当前鉴权上下文是否支持读写 ConfigMaps
+		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps 和读取 Services
+		if err := CheckPermissions(clientset, nil); err != nil {
+			klog.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
+			time.Sleep(10 * time.Second)
+			continue
+		}
 
 		// 获取当前命名空间中的所有 ConfigMap
 		configMapList, err := GetAllConfigMapsInCurrentNamespace(clientset, nil)
