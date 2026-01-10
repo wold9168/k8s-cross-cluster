@@ -10,33 +10,40 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// GetSpecificConfigMapInCurrentNamespace retrieves a specific ConfigMap from the current namespace
-func GetSpecificConfigMapInCurrentNamespace(clientset *kubernetes.Clientset, configMapName string) (*v1.ConfigMap, error) {
+// GetAllConfigMapsInCurrentNamespace retrieves all ConfigMaps from the current namespace
+func GetAllConfigMapsInCurrentNamespace(clientset kubernetes.Interface, namespace *string) (*v1.ConfigMapList, error) {
 	// Get the current namespace
-	namespace, err := getCurrentNamespace()
-	if err != nil {
-		klog.Warningf("Could not determine current namespace, using 'default': %v", err)
-		namespace = "default"
+	var ns string
+	if namespace == nil {
+		currentNamespace, err := getCurrentNamespace()
+		if err != nil {
+			klog.Warningf("Could not determine current namespace, using 'default': %v", err)
+			ns = "default"
+		} else {
+			ns = currentNamespace
+		}
+	} else {
+		ns = *namespace
 	}
 
-	// Attempt to get the ConfigMap from the current namespace
-	configMap, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
+	// Attempt to list all ConfigMaps from the current namespace
+	configMapList, err := clientset.CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
 
 	// Handle different types of errors
 	if errors.IsNotFound(err) {
-		klog.Errorf("ConfigMap %s not found in namespace %s\n", configMapName, namespace)
-		return configMap, err
+		klog.Errorf("ConfigMaps not found in namespace %s\n", ns)
+		return configMapList, err
 	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
 		// Handle Kubernetes API status errors (like 403, 500, etc.)
-		klog.Errorf("Error getting ConfigMap %s in namespace %s: %v\n", configMapName, namespace, statusError.ErrStatus.Message)
-		return configMap, err
+		klog.Errorf("Error listing ConfigMaps in namespace %s: %v\n", ns, statusError.ErrStatus.Message)
+		return configMapList, err
 	} else if err != nil {
 		// Other non-nil errors (like network issues, context cancellation, etc.)
-		klog.Errorf("Unexpected error getting ConfigMap %s in namespace %s: %v\n", configMapName, namespace, err)
-		return configMap, err
+		klog.Errorf("Unexpected error listing ConfigMaps in namespace %s: %v\n", ns, err)
+		return configMapList, err
 	} else {
-		// Success case - ConfigMap was found
-		klog.Infof("Found ConfigMap %s in namespace %s\n", configMapName, namespace)
-		return configMap, nil
+		// Success case - ConfigMaps were listed
+		klog.Infof("Found %d ConfigMap(s) in namespace %s\n", len(configMapList.Items), ns)
+		return configMapList, nil
 	}
 }

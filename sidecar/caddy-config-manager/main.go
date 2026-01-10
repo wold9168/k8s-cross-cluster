@@ -24,20 +24,26 @@ func main() {
 	for {
 		// TODO: 添加事前的鉴权检查，应该直接检查当前鉴权上下文是否支持读写 ConfigMaps
 
-		// 获取当前命名空间中的特定 ConfigMap
-		configMapName := "example"
-		_, err = GetSpecificConfigMapInCurrentNamespace(clientset, configMapName)
+		// 获取当前命名空间中的所有 ConfigMap
+		configMapList, err := GetAllConfigMapsInCurrentNamespace(clientset, nil)
 		if err != nil {
 			// 如果获取 ConfigMap 失败，记录错误但不 panic，继续执行
-			klog.Errorf("Failed to get ConfigMap %s: %v\n", configMapName, err)
+			klog.Errorf("Failed to list ConfigMaps: %v\n", err)
+		} else {
+			for _, cm := range configMapList.Items {
+				klog.Infof("Successfully retrieved ConfigMap: %s\n", cm.Name)
+			}
 		}
 
-		// 获取当前命名空间中的特定 Service
-		serviceName := "example-service"
-		_, err = GetSpecificServiceInCurrentNamespace(clientset, serviceName)
+		// 获取当前命名空间中的所有 Service
+		serviceList, err := GetAllServicesInCurrentNamespace(clientset, nil)
 		if err != nil {
 			// 如果获取 Service 失败，记录错误但不 panic，继续执行
-			klog.Errorf("Failed to get Service %s: %v\n", serviceName, err)
+			klog.Errorf("Failed to list Services: %v\n", err)
+		} else {
+			for _, svc := range serviceList.Items {
+				klog.Infof("Successfully retrieved Service: %s\n", svc.Name)
+			}
 		}
 
 
