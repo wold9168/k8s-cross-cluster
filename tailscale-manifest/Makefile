@@ -27,12 +27,12 @@ uninstall: ## Delete all the tailscale resource from the cluster.
 		CONTEXT_VALUE=$(CONTEXT); \
 	fi; \
 	echo "Uninstalling k8s-cross-cluster components from context $$CONTEXT_VALUE..."; \
-	kubectl --context $$CONTEXT_VALUE delete all -l name=k8s-cross-cluster || true; \
 	kubectl --context $$CONTEXT_VALUE delete -f tailscale-userspace-proxy.yaml || true; \
 	kubectl --context $$CONTEXT_VALUE delete -f tailscale-rbac.yaml || true; \
 	kubectl --context $$CONTEXT_VALUE delete -f tailscale-extra-args-configmap.yaml || true; \
 	kubectl --context $$CONTEXT_VALUE delete -f tailscale-auth-secret.yaml || true; \
-	kubectl --context $$CONTEXT_VALUE delete -f tailscale-cluster-name-configmap.yaml || true
+	kubectl --context $$CONTEXT_VALUE delete -f tailscale-cluster-name-configmap.yaml || true; \
+	kubectl --context $$CONTEXT_VALUE delete all -l name=k8s-cross-cluster || true
 
 help: ## Show this help
 	@echo ""
