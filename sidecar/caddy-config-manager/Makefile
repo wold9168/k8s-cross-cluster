@@ -10,7 +10,7 @@ image-build: ## Build Docker image with tag $(USERNAME)/caddy-config-manager:<co
 .PHONY: image-build
 
 binary-build: ## Build Binary
-    CGO_ENABLED=0 GOOS=linux go build -a -o caddy-config-manager .
+	CGO_ENABLED=0 GOOS=linux go build -a -o caddy-config-manager .
 .PHONY: binary-build
 
 test: ## Run test
