@@ -160,7 +160,18 @@ func TestGenerateCrossClusterServiceDomains(t *testing.T) {
 		},
 	}
 
-	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(serviceList)
+	clientset := fake.NewSimpleClientset(
+		&v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "tailscale-cluster-name",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"CLUSTER_NAME": "foo",
+			},
+		},
+	)
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, serviceList)
 
 	if len(remoteDomains) != 2 {
 		t.Errorf("Expected 2 remote domains, got: %d", len(remoteDomains))
@@ -170,9 +181,9 @@ func TestGenerateCrossClusterServiceDomains(t *testing.T) {
 		t.Errorf("Expected 2 domain mappings, got: %d", len(domainMapping))
 	}
 
-	expectedRemote1 := "service1.test-ns.svc.clusterwise.remote"
+	expectedRemote1 := "service1.test-ns.svc.foo.remote"
 	expectedLocal1 := "service1.test-ns.svc.cluster.local"
-	expectedRemote2 := "service2.test-ns.svc.clusterwise.remote"
+	expectedRemote2 := "service2.test-ns.svc.foo.remote"
 	expectedLocal2 := "service2.test-ns.svc.cluster.local"
 
 	foundRemote1 := false
@@ -203,7 +214,8 @@ func TestGenerateCrossClusterServiceDomains(t *testing.T) {
 }
 
 func TestGenerateCrossClusterServiceDomains_Nil(t *testing.T) {
-	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(nil)
+	clientset := fake.NewSimpleClientset()
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, nil)
 
 	if len(remoteDomains) != 0 {
 		t.Errorf("Expected 0 remote domains, got: %d", len(remoteDomains))
@@ -219,7 +231,8 @@ func TestGenerateCrossClusterServiceDomains_Empty(t *testing.T) {
 		Items: []v1.Service{},
 	}
 
-	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(serviceList)
+	clientset := fake.NewSimpleClientset()
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, serviceList)
 
 	if len(remoteDomains) != 0 {
 		t.Errorf("Expected 0 remote domains, got: %d", len(remoteDomains))
@@ -227,6 +240,52 @@ func TestGenerateCrossClusterServiceDomains_Empty(t *testing.T) {
 
 	if len(domainMapping) != 0 {
 		t.Errorf("Expected 0 domain mappings, got: %d", len(domainMapping))
+	}
+}
+
+func TestGenerateCrossClusterServiceDomains_EmptyClusterName(t *testing.T) {
+	namespace := "test-ns"
+	serviceList := &v1.ServiceList{
+		Items: []v1.Service{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: namespace,
+				},
+			},
+		},
+	}
+
+	clientset := fake.NewSimpleClientset(
+		&v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "tailscale-cluster-name",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"CLUSTER_NAME": "",
+			},
+		},
+	)
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, serviceList)
+
+	if len(remoteDomains) != 1 {
+		t.Errorf("Expected 1 remote domain, got: %d", len(remoteDomains))
+	}
+
+	if len(domainMapping) != 1 {
+		t.Errorf("Expected 1 domain mapping, got: %d", len(domainMapping))
+	}
+
+	expectedRemote := "service1.test-ns.svc.default-cluster-name.remote"
+	expectedLocal := "service1.test-ns.svc.cluster.local"
+
+	if len(remoteDomains) > 0 && remoteDomains[0] != expectedRemote {
+		t.Errorf("Expected remote domain: %s, got: %s", expectedRemote, remoteDomains[0])
+	}
+
+	if domainMapping[expectedRemote] != expectedLocal {
+		t.Errorf("Expected mapping %s -> %s, got: %s", expectedRemote, expectedLocal, domainMapping[expectedRemote])
 	}
 }
 
@@ -345,7 +404,7 @@ func TestCheckPermissions(t *testing.T) {
 	// This test will fail because fake clientset does not support SelfSubjectAccessReview
 	// In production, use mock or integration tests
 	err := CheckPermissions(clientset, &namespace)
-	
+
 	// Expected to return error because fake clientset does not support AuthorizationV1 API
 	if err == nil {
 		t.Errorf("Expected error from fake clientset, got nil")
@@ -357,7 +416,7 @@ func TestCheckPermissions_NilNamespace(t *testing.T) {
 
 	// Test nil namespace parameter, should use default namespace retrieval logic
 	err := CheckPermissions(clientset, nil)
-	
+
 	// Expected to return error because fake clientset does not support AuthorizationV1 API
 	if err == nil {
 		t.Errorf("Expected error from fake clientset, got nil")
