@@ -1,14 +1,12 @@
-package test
+package k8sclient
 
 import (
 	"context"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-
-	k8sclient "github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager/pkg/k8sclient"
 )
 
 func TestGetAllConfigMapsInCurrentNamespace(t *testing.T) {
@@ -30,7 +28,7 @@ func TestGetAllConfigMapsInCurrentNamespace(t *testing.T) {
 	)
 
 	// Call the function with namespace parameter
-	configMapList, err := k8sclient.GetAllConfigMapsInCurrentNamespace(clientset, &namespace)
+	configMapList, err := GetAllConfigMapsInCurrentNamespace(clientset, &namespace)
 
 	// Verify results
 	if err != nil {
@@ -61,7 +59,7 @@ func TestGetAllConfigMapsInCurrentNamespace_Empty(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
 
 	// Call the function with namespace parameter
-	configMapList, err := k8sclient.GetAllConfigMapsInCurrentNamespace(clientset, &namespace)
+	configMapList, err := GetAllConfigMapsInCurrentNamespace(clientset, &namespace)
 
 	// Verify results
 	if err != nil {
@@ -96,7 +94,7 @@ func TestGetAllServicesInCurrentNamespace(t *testing.T) {
 	)
 
 	// Call the function with namespace parameter
-	serviceList, err := k8sclient.GetAllServicesInCurrentNamespace(clientset, &namespace)
+	serviceList, err := GetAllServicesInCurrentNamespace(clientset, &namespace)
 
 	// Verify results
 	if err != nil {
@@ -127,7 +125,7 @@ func TestGetAllServicesInCurrentNamespace_Empty(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
 
 	// Call the function with namespace parameter
-	serviceList, err := k8sclient.GetAllServicesInCurrentNamespace(clientset, &namespace)
+	serviceList, err := GetAllServicesInCurrentNamespace(clientset, &namespace)
 
 	// Verify results
 	if err != nil {
@@ -148,20 +146,20 @@ func TestUpdateCaddyConfigMap_Create(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
 	caddyConfig := "service1.test-ns.svc.clusterwise.remote {\n    reverse_proxy service1.test-ns.svc.cluster.local\n}\n"
 
-	err := k8sclient.UpdateCaddyConfigMap(clientset, &namespace, caddyConfig)
+	err := UpdateCaddyConfigMap(clientset, &namespace, caddyConfig)
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
 
 	// Verify ConfigMap was created
-	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), k8sclient.CaddyConfigMapName, metav1.GetOptions{})
+	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), CaddyConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get ConfigMap: %v", err)
 	}
 
-	if cm.Data[k8sclient.CaddyConfigKey] != caddyConfig {
-		t.Errorf("Expected Caddyfile content: %s, got: %s", caddyConfig, cm.Data[k8sclient.CaddyConfigKey])
+	if cm.Data[CaddyConfigKey] != caddyConfig {
+		t.Errorf("Expected Caddyfile content: %s, got: %s", caddyConfig, cm.Data[CaddyConfigKey])
 	}
 }
 
@@ -171,33 +169,33 @@ func TestUpdateCaddyConfigMap_Update(t *testing.T) {
 	clientset := fake.NewSimpleClientset(
 		&v1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      k8sclient.CaddyConfigMapName,
+				Name:      CaddyConfigMapName,
 				Namespace: namespace,
 			},
 			Data: map[string]string{
-				k8sclient.CaddyConfigKey: existingConfig,
+				CaddyConfigKey: existingConfig,
 			},
 		},
 	)
 	newConfig := "service1.test-ns.svc.clusterwise.remote {\n    reverse_proxy service1.test-ns.svc.cluster.local\n}\n"
 
-	err := k8sclient.UpdateCaddyConfigMap(clientset, &namespace, newConfig)
+	err := UpdateCaddyConfigMap(clientset, &namespace, newConfig)
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
 
 	// Verify ConfigMap was updated
-	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), k8sclient.CaddyConfigMapName, metav1.GetOptions{})
+	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), CaddyConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get ConfigMap: %v", err)
 	}
 
-	if cm.Data[k8sclient.CaddyConfigKey] != newConfig {
-		t.Errorf("Expected Caddyfile content: %s, got: %s", newConfig, cm.Data[k8sclient.CaddyConfigKey])
+	if cm.Data[CaddyConfigKey] != newConfig {
+		t.Errorf("Expected Caddyfile content: %s, got: %s", newConfig, cm.Data[CaddyConfigKey])
 	}
 
-	if cm.Data[k8sclient.CaddyConfigKey] == existingConfig {
+	if cm.Data[CaddyConfigKey] == existingConfig {
 		t.Errorf("ConfigMap was not updated, still has old config")
 	}
 }
@@ -208,7 +206,7 @@ func TestCheckPermissions(t *testing.T) {
 
 	// This test will fail because fake clientset does not support SelfSubjectAccessReview
 	// In production, use mock or integration tests
-	err := k8sclient.CheckPermissions(clientset, &namespace)
+	err := CheckPermissions(clientset, &namespace)
 
 	// Expected to return error because fake clientset does not support AuthorizationV1 API
 	if err == nil {
@@ -220,7 +218,7 @@ func TestCheckPermissions_NilNamespace(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
 
 	// Test nil namespace parameter, should use default namespace retrieval logic
-	err := k8sclient.CheckPermissions(clientset, nil)
+	err := CheckPermissions(clientset, nil)
 
 	// Expected to return error because fake clientset does not support AuthorizationV1 API
 	if err == nil {
