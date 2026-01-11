@@ -1,19 +1,17 @@
 # Build stage
 FROM golang:1.25.5-alpine AS builder
 
-WORKDIR /app
-
 # Install dependencies
 RUN apk add --no-cache git ca-certificates
 
-# Copy go mod files
-COPY go.mod go.sum ./
+# Copy the entire project first to satisfy the replace directive
+COPY ./../.. /app/k8s-cross-cluster
+
+# Set working directory to the caddy-config-manager directory
+WORKDIR /app/k8s-cross-cluster/sidecar/caddy-config-manager
 
 # Download dependencies
 RUN go mod download
-
-# Copy source code
-COPY . .
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o caddy-config-manager .
@@ -27,7 +25,7 @@ WORKDIR /app
 RUN apk --no-cache add ca-certificates tzdata
 
 # Copy the binary from builder
-COPY --from=builder /app/caddy-config-manager .
+COPY --from=builder /app/k8s-cross-cluster/sidecar/caddy-config-manager/caddy-config-manager .
 
 # Set timezone
 ENV TZ=Asia/Shanghai
