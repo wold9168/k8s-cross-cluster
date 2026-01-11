@@ -132,6 +132,30 @@ update_extra_args_configmap() {
     # Replace the empty value with the actual value
     sed -i "s|TS_EXTRA_ARGS: \"\"|TS_EXTRA_ARGS: \"$TS_EXTRA_ARGS_VALUE\"|" "$TEMP_CONFIGMAP_FILE"
 
+    # Handle TS_HOSTNAME based on cluster-name
+    if [[ -n "$CLUSTER_NAME" ]]; then
+        # If cluster-name is set, add TS_HOSTNAME to the ConfigMap
+        TS_HOSTNAME_VALUE="${CLUSTER_NAME}-tsgateway"
+        verbose_log "Setting TS_HOSTNAME to: $TS_HOSTNAME_VALUE"
+        
+        # Check if TS_HOSTNAME already exists in the ConfigMap
+        if grep -q "TS_HOSTNAME:" "$TEMP_CONFIGMAP_FILE"; then
+            # Replace existing value
+            sed -i "s|TS_HOSTNAME: .*|TS_HOSTNAME: \"$TS_HOSTNAME_VALUE\"|" "$TEMP_CONFIGMAP_FILE"
+        else
+            # Add TS_HOSTNAME after TS_EXTRA_ARGS
+            sed -i "/TS_EXTRA_ARGS:/a\\  TS_HOSTNAME: \"$TS_HOSTNAME_VALUE\"" "$TEMP_CONFIGMAP_FILE"
+        fi
+    else
+        # If cluster-name is not set, remove TS_HOSTNAME if it exists
+        if grep -q "TS_HOSTNAME:" "$TEMP_CONFIGMAP_FILE"; then
+            verbose_log "Cluster name not set, removing TS_HOSTNAME from ConfigMap"
+            sed -i "/TS_HOSTNAME:/d" "$TEMP_CONFIGMAP_FILE"
+        else
+            verbose_log "Cluster name not set, TS_HOSTNAME not present in ConfigMap"
+        fi
+    fi
+
     verbose_log "Applying Tailscale extra args ConfigMap..."
     verbose_log "Running: kubectl apply -f $TEMP_CONFIGMAP_FILE $USE_CONTEXT_FLAG"
     kubectl apply -f "$TEMP_CONFIGMAP_FILE" $USE_CONTEXT_FLAG
