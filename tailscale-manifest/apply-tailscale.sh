@@ -8,20 +8,22 @@ set -e  # Exit on any error
 # Default values
 AUTH_KEY=""
 LOGIN_SERVER=""
+CLUSTER_NAME=""
 CLUSTER_CONTEXT=""
 USE_CONTEXT_FLAG=""
 VERBOSE=false
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 --authkey <TS_AUTHKEY> [--login-server <LOGIN_SERVER_URL>] [--context <CLUSTER_CONTEXT>] [-v]"
+    echo "Usage: $0 --authkey <TS_AUTHKEY> [--login-server <LOGIN_SERVER_URL>] [--cluster-name <CLUSTER_NAME>] [--context <CLUSTER_CONTEXT>] [-v]"
     echo "  --authkey: Tailscale auth key (required)"
     echo "  --login-server: Tailscale login server URL (optional, uses default if not specified)"
+    echo "  --cluster-name: Cluster name for identification (optional, required for cross-cluster scenarios)"
     echo "  --context: Kubernetes cluster context (optional, uses current context if not specified)"
     echo "  -v: Enable verbose output for debugging"
     echo ""
-    echo "Example: $0 --authkey tskey-1234567890 --login-server https://my-login-server.example.com --context my-cluster-context -v"
-    echo "Example without context (uses current context): $0 --authkey tskey-1234567890 -v"
+    echo "Example: $0 --authkey tskey-1234567890 --login-server https://my-login-server.example.com --cluster-name my-cluster --context my-cluster-context -v"
+    echo "Example without context (uses current context): $0 --authkey tskey-1234567890 --cluster-name my-cluster -v"
     exit 1
 }
 
@@ -146,10 +148,39 @@ update_userspace_proxy() {
     kubectl apply -f tailscale-userspace-proxy.yaml $USE_CONTEXT_FLAG
 }
 
+# Function to update the cluster name ConfigMap
+update_cluster_name_configmap() {
+    # Create a temporary file with the updated ConfigMap
+    TEMP_CLUSTER_CONFIGMAP_FILE=$(mktemp)
+    trap 'rm -f "$TEMP_CLUSTER_CONFIGMAP_FILE"' RETURN
+
+    verbose_log "Created temporary file: $TEMP_CLUSTER_CONFIGMAP_FILE"
+
+    # Copy the original ConfigMap file
+    cp tailscale-cluster-name-configmap.yaml "$TEMP_CLUSTER_CONFIGMAP_FILE"
+
+    # Replace the empty value with the actual cluster name
+    sed -i "s|CLUSTER_NAME: \"\"|CLUSTER_NAME: \"$CLUSTER_NAME\"|" "$TEMP_CLUSTER_CONFIGMAP_FILE"
+
+    verbose_log "Applying Tailscale cluster name ConfigMap..."
+    verbose_log "Running: kubectl apply -f $TEMP_CLUSTER_CONFIGMAP_FILE $USE_CONTEXT_FLAG"
+    kubectl apply -f "$TEMP_CLUSTER_CONFIGMAP_FILE" $USE_CONTEXT_FLAG
+}
+
 # Function to apply the userspace proxy
 apply_userspace_proxy() {
     echo "Applying Tailscale userspace proxy..."
     update_userspace_proxy
+}
+
+# Function to apply the cluster name ConfigMap
+apply_cluster_name_configmap() {
+    if [[ -n "$CLUSTER_NAME" ]]; then
+        echo "Applying Tailscale cluster name ConfigMap with name: $CLUSTER_NAME"
+        update_cluster_name_configmap
+    else
+        verbose_log "Cluster name not specified, skipping cluster name ConfigMap"
+    fi
 }
 
 # Function to display completion message
@@ -183,6 +214,10 @@ while [[ $# -gt 0 ]]; do
             LOGIN_SERVER="$2"
             shift 2
             ;;
+        --cluster-name)
+            CLUSTER_NAME="$2"
+            shift 2
+            ;;
         --context)
             CLUSTER_CONTEXT="$2"
             shift 2
@@ -208,4 +243,5 @@ handle_kubernetes_context
 apply_rbac
 update_auth_secret
 apply_userspace_proxy
+apply_cluster_name_configmap
 display_completion_message

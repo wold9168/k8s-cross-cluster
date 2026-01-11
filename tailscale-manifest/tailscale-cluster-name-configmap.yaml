@@ -1,0 +1,10 @@
+# tailscale-cluster-name-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tailscale-cluster-name
+  namespace: default
+  labels:
+    name: k8s-cross-cluster
+data:
+  CLUSTER_NAME: ""  # 由脚本替换为 --cluster-name 参数，以指定集群名称，便于 caddy-config-manager 进行区分

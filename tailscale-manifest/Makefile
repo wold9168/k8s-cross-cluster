@@ -3,11 +3,17 @@
 .PHONY: install uninstall
 
 # Install target - calls apply-tailscale.sh with optional parameters
-install: ## Install the tailscale resource into the cluster, use `make ARGS=... install` to pass the argument to the script (apply-tailscale.sh). Run `./apply-tailscale.sh --help` for more info about the ARGS.
+install: ## Install the tailscale resource into the cluster, use `make ARGS=... install` to pass arguments to the script (apply-tailscale.sh). Supported args: --authkey, --login-server, --cluster-name, --context. Run `./apply-tailscale.sh --help` for more info.
 	@echo "Installing k8s-cross-cluster components..."
 	@./apply-tailscale.sh $(ARGS)
 
-# Uninstall target - removes all resources with label name=k8s-cross-cluster
+# Uninstall target - removes all tailscale resources including:
+# - resources with label name=k8s-cross-cluster
+# - tailscale-userspace-proxy.yaml
+# - tailscale-rbac.yaml
+# - tailscale-extra-args-configmap.yaml
+# - tailscale-auth-secret.yaml
+# - tailscale-cluster-name-configmap.yaml
 # CONTEXT parameter should be passed via ARGS as --context your-context
 uninstall: ## Delete all the tailscale resource from the cluster.
 	@echo "Checking for context in ARGS..."
@@ -25,7 +31,8 @@ uninstall: ## Delete all the tailscale resource from the cluster.
 	kubectl --context $$CONTEXT_VALUE delete -f tailscale-userspace-proxy.yaml || true; \
 	kubectl --context $$CONTEXT_VALUE delete -f tailscale-rbac.yaml || true; \
 	kubectl --context $$CONTEXT_VALUE delete -f tailscale-extra-args-configmap.yaml || true; \
-	kubectl --context $$CONTEXT_VALUE delete -f tailscale-auth-secret.yaml || true
+	kubectl --context $$CONTEXT_VALUE delete -f tailscale-auth-secret.yaml || true; \
+	kubectl --context $$CONTEXT_VALUE delete -f tailscale-cluster-name-configmap.yaml || true
 
 help: ## Show this help
 	@echo ""
