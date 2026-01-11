@@ -13,6 +13,10 @@ binary-build: ## Build Binary
     CGO_ENABLED=0 GOOS=linux go build -a -o caddy-config-manager .
 .PHONY: binary-build
 
+test: ## Run test
+	go test -v ./...
+.PHONY: test
+
 help: ## Show this help
 	@echo ""
 	@echo "Specify a command. The choices are:"
