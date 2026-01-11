@@ -1,4 +1,4 @@
-package main
+package k8sclient
 
 import (
 	"context"
@@ -15,7 +15,7 @@ func GetAllServicesInCurrentNamespace(clientset kubernetes.Interface, namespace 
 	// Get the current namespace
 	var ns string
 	if namespace == nil {
-		currentNamespace, err := getCurrentNamespace()
+		currentNamespace, err := GetCurrentNamespace()
 		if err != nil {
 			klog.Warningf("Could not determine current namespace, using 'default': %v", err)
 			ns = "default"

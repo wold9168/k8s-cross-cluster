@@ -1,4 +1,4 @@
-package main
+package k8sclient
 
 import (
 	"io/ioutil"
@@ -9,11 +9,11 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-// getCurrentNamespace gets the current namespace from multiple sources in order of preference:
+// GetCurrentNamespace gets the current namespace from multiple sources in order of preference:
 // 1. Environment variable POD_NAMESPACE
 // 2. Service account file (for in-cluster pods)
 // 3. Current context in kubeconfig file (for out-of-cluster scenarios)
-func getCurrentNamespace() (string, error) {
+func GetCurrentNamespace() (string, error) {
 	// First try to get namespace from environment variable
 	namespace := os.Getenv("POD_NAMESPACE")
 	if namespace != "" {
@@ -77,4 +77,13 @@ func getNamespaceFromKubeconfig() (string, error) {
 	}
 
 	return context.Namespace, nil
+}
+
+// getCurrentNamespaceOrProvided returns the provided namespace if not nil, otherwise returns the current namespace
+func getCurrentNamespaceOrProvided(namespace *string) string {
+	if namespace != nil {
+		return *namespace
+	}
+	ns, _ := GetCurrentNamespace()
+	return ns
 }
