@@ -6,7 +6,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	k8sclient "github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager/pkg/k8sclient"
+	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
 	"github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager/pkg/generator"
 )
 
