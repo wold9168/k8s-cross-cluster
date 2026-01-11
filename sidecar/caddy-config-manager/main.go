@@ -51,7 +51,7 @@ func main() {
 			}
 
 			// 根据 Service 生成对应的跨集群访问域名
-			remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(serviceList)
+			remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, serviceList)
 			for _, remoteDomain := range remoteDomains {
 				klog.Infof("Remote domain: %s -> Local domain: %s\n", remoteDomain, domainMapping[remoteDomain])
 			}
