@@ -200,13 +200,14 @@ func TestUpdateCaddyConfigMap_Update(t *testing.T) {
 	}
 }
 
-func TestCheckPermissions(t *testing.T) {
+func TestCheckConfigMapPermissions(t *testing.T) {
 	namespace := "test-ns"
 	clientset := fake.NewSimpleClientset()
+	ctx := context.Background()
 
 	// This test will fail because fake clientset does not support SelfSubjectAccessReview
 	// In production, use mock or integration tests
-	err := CheckPermissions(clientset, &namespace)
+	err := CheckConfigMapPermissions(clientset, ctx, namespace)
 
 	// Expected to return error because fake clientset does not support AuthorizationV1 API
 	if err == nil {
@@ -214,11 +215,14 @@ func TestCheckPermissions(t *testing.T) {
 	}
 }
 
-func TestCheckPermissions_NilNamespace(t *testing.T) {
+func TestCheckServicePermissions(t *testing.T) {
+	namespace := "test-ns"
 	clientset := fake.NewSimpleClientset()
+	ctx := context.Background()
 
-	// Test nil namespace parameter, should use default namespace retrieval logic
-	err := CheckPermissions(clientset, nil)
+	// This test will fail because fake clientset does not support SelfSubjectAccessReview
+	// In production, use mock or integration tests
+	err := CheckServicePermissions(clientset, ctx, namespace)
 
 	// Expected to return error because fake clientset does not support AuthorizationV1 API
 	if err == nil {
