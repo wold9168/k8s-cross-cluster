@@ -16,7 +16,7 @@ const CaddyConfigKey = "Caddyfile"
 // UpdateCaddyConfigMap creates or updates the ConfigMap with Caddy configuration
 func UpdateCaddyConfigMap(clientset kubernetes.Interface, namespaceProvided *string, caddyConfig string) error {
 	ctx := context.Background()
-	ns := getCurrentNamespaceOrProvided(namespaceProvided)
+	ns := GetCurrentNamespaceOrProvided(namespaceProvided)
 
 	configMaps := clientset.CoreV1().ConfigMaps(ns)
 

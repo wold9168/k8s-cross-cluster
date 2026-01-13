@@ -10,36 +10,34 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// CheckPermissions verifies that the current authentication context has the necessary permissions
-// Returns an error if any required permission is missing
-func CheckPermissions(clientset kubernetes.Interface, namespace *string) error {
-	ctx := context.Background()
-	ns := getCurrentNamespaceOrProvided(namespace)
-
-	klog.Infof("Checking permissions in namespace: %s", ns)
-
+// CheckConfigMapPermissions verifies ConfigMap permissions
+func CheckConfigMapPermissions(clientset kubernetes.Interface, ctx context.Context, namespace string) error {
 	// Check ConfigMaps read permissions (get, list)
-	if err := checkResourcePermission(clientset, ctx, ns, "configmaps", "get"); err != nil {
+	if err := checkResourcePermission(clientset, ctx, namespace, "configmaps", "get"); err != nil {
 		return fmt.Errorf("missing ConfigMaps get permission: %w", err)
 	}
-	if err := checkResourcePermission(clientset, ctx, ns, "configmaps", "list"); err != nil {
+	if err := checkResourcePermission(clientset, ctx, namespace, "configmaps", "list"); err != nil {
 		return fmt.Errorf("missing ConfigMaps list permission: %w", err)
 	}
 
 	// Check ConfigMaps write permissions (create, update)
-	if err := checkResourcePermission(clientset, ctx, ns, "configmaps", "create"); err != nil {
+	if err := checkResourcePermission(clientset, ctx, namespace, "configmaps", "create"); err != nil {
 		return fmt.Errorf("missing ConfigMaps create permission: %w", err)
 	}
-	if err := checkResourcePermission(clientset, ctx, ns, "configmaps", "update"); err != nil {
+	if err := checkResourcePermission(clientset, ctx, namespace, "configmaps", "update"); err != nil {
 		return fmt.Errorf("missing ConfigMaps update permission: %w", err)
 	}
 
+	return nil
+}
+
+// CheckServicePermissions verifies Service permissions
+func CheckServicePermissions(clientset kubernetes.Interface, ctx context.Context, namespace string) error {
 	// Check Services read permissions (list)
-	if err := checkResourcePermission(clientset, ctx, ns, "services", "list"); err != nil {
+	if err := checkResourcePermission(clientset, ctx, namespace, "services", "list"); err != nil {
 		return fmt.Errorf("missing Services list permission: %w", err)
 	}
 
-	klog.Infof("All required permissions verified in namespace: %s", ns)
 	return nil
 }
 
