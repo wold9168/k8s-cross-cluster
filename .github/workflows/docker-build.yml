@@ -43,7 +43,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./sidecar/caddy-config-manager
+          context: ./
           file: ./sidecar/caddy-config-manager/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository }}/caddy-config-manager:${{ steps.tag.outputs.tag }}
