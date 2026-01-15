@@ -140,6 +140,40 @@ func (s *Server) GetIP() (string, error) {
 	return "", fmt.Errorf("no IPv4 address found for %s", host)
 }
 
+// GetPort 获取DNS服务器的端口号
+func (s *Server) GetPort() (string, error) {
+	_, port, err := net.SplitHostPort(s.addr)
+	if err != nil {
+		// 如果没有端口，返回默认端口53
+		return "53", nil
+	}
+
+	// 如果端口为0，需要从实际监听的连接中获取操作系统分配的端口
+	if port == "0" {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+
+		if s.server == nil || s.server.PacketConn == nil {
+			return "", fmt.Errorf("server not started or no active connection")
+		}
+
+		// 从PacketConn获取实际监听的地址
+		addr := s.server.PacketConn.LocalAddr()
+		if addr == nil {
+			return "", fmt.Errorf("failed to get local address")
+		}
+
+		_, actualPort, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			return "", fmt.Errorf("failed to parse address %s: %v", addr.String(), err)
+		}
+
+		return actualPort, nil
+	}
+
+	return port, nil
+}
+
 // AddRecords 添加DNS记录
 func (s *Server) AddRecords(domain string, records []dns.RR) {
 	s.updateChan <- &RecordUpdate{
