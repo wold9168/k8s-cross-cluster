@@ -7,6 +7,7 @@ import (
 	"k8s.io/klog/v2"
 
 	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
+	dnsserver "github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/dnsserver"
 )
 
 func main() {
@@ -23,7 +24,13 @@ func main() {
 		panic(err.Error())
 	}
 
-	// TODO: 在这里拉起来一个DNS服务器
+	dnsSrv := dnsserver.NewDNSServer("0.0.0.0:10053")
+	if err := dnsSrv.Start(); err != nil {
+		klog.Error("DNS server start failed: ", err.Error())
+		panic(err.Error())
+	}
+	defer dnsSrv.Stop()
+
 
 	for {
 		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps
