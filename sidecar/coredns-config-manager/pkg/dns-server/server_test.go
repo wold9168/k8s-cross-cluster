@@ -419,3 +419,85 @@ func TestRecordCloneForWildcard(t *testing.T) {
 		t.Errorf("Original record name changed to %s", originalRecord.Header().Name)
 	}
 }
+
+func TestGetPortWithSpecificPort(t *testing.T) {
+	server := NewServer("127.0.0.1:5353")
+
+	port, err := server.GetPort()
+	if err != nil {
+		t.Fatalf("GetPort failed: %v", err)
+	}
+
+	if port != "5353" {
+		t.Errorf("Expected port 5353, got %s", port)
+	}
+}
+
+func TestGetPortWithZeroPort(t *testing.T) {
+	server := NewServer("127.0.0.1:0")
+
+	// 未启动服务器时，端口为0应返回错误
+	port, err := server.GetPort()
+	if err == nil {
+		t.Errorf("Expected error when server not started, got port %s", port)
+	}
+
+	// 启动服务器
+	if err := server.Start(); err != nil {
+		t.Fatalf("Failed to start server: %v", err)
+	}
+	defer server.Stop()
+
+	// 等待服务器启动
+	time.Sleep(100 * time.Millisecond)
+
+	// 启动后应能获取到操作系统分配的端口
+	port, err = server.GetPort()
+	if err != nil {
+		t.Fatalf("GetPort failed after server started: %v", err)
+	}
+
+	// 端口应该是一个有效的非零值
+	if port == "" || port == "0" {
+		t.Errorf("Expected non-zero port, got %s", port)
+	}
+}
+
+func TestGetPortWithoutPort(t *testing.T) {
+	server := NewServer("127.0.0.1")
+
+	port, err := server.GetPort()
+	if err != nil {
+		t.Fatalf("GetPort failed: %v", err)
+	}
+
+	// 应该返回默认端口53
+	if port != "53" {
+		t.Errorf("Expected default port 53, got %s", port)
+	}
+}
+
+func TestGetPortWithoutColon(t *testing.T) {
+	server := NewServer("invalid_address_without_colon")
+
+	port, err := server.GetPort()
+	if err != nil {
+		t.Fatalf("GetPort failed unexpectedly: %v", err)
+	}
+
+	// 没有端口的地址应返回默认端口53
+	if port != "53" {
+		t.Errorf("Expected default port 53, got %s", port)
+	}
+}
+
+func TestGetPortWithInvalidPort(t *testing.T) {
+	server := NewServer("invalid_address_without_colon:invalid_port")
+
+	_, err := server.GetPort()
+	// 这种情况下net.SplitHostPort会成功返回端口部分，但端口字符串是无效的
+	// GetPort只负责提取端口字符串，不验证端口有效性
+	if err != nil {
+		t.Errorf("GetPort should not fail for extracting port string: %v", err)
+	}
+}
