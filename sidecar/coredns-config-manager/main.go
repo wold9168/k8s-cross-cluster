@@ -42,7 +42,15 @@ func main() {
 			continue
 		}
 
-		// TODO: 获取上面拉起来的DNS服务器的IP
+		// 获取当前Pod的IP地址
+		podIP, err := k8sclient.GetCurrentPodIP(clientset)
+		if err != nil {
+			klog.Errorf("Failed to get Pod IP: %v, retrying in 10 seconds...", err)
+			time.Sleep(10 * time.Second)
+			continue
+		}
+		klog.Infof("Current Pod IP: %s", podIP)
+
 		// TODO: 检查Corefile(kube-system/configmaps/coredns)有没有设置我们拉起来的DNS服务器为上游。如果没有，则将对应的配置项置入
 		//		记得为对应的配置项打注释，标注此为 coredns-configmap-manager 自动生成，以免引发困惑
 		// TODO: 获取当前节点的 Tailscale 对端节点
