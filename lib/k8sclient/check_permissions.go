@@ -41,6 +41,16 @@ func CheckServicePermissions(clientset kubernetes.Interface, ctx context.Context
 	return nil
 }
 
+// CheckPodPermissions verifies Pod permissions
+func CheckPodPermissions(clientset kubernetes.Interface, ctx context.Context, namespace string) error {
+	// Check Pods read permissions (get)
+	if err := checkResourcePermission(clientset, ctx, namespace, "pods", "get"); err != nil {
+		return fmt.Errorf("missing Pods get permission: %w", err)
+	}
+
+	return nil
+}
+
 // checkResourcePermission checks if the current user has permission to perform a verb on a resource
 func checkResourcePermission(clientset kubernetes.Interface, ctx context.Context, namespace, resource, verb string) error {
 	sar := &authorizationv1.SelfSubjectAccessReview{

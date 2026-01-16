@@ -33,14 +33,19 @@ func main() {
 
 
 	for {
-		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps
+		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps 和读取 Pods
 		if ns, err := k8sclient.GetCurrentNamespace(); err != nil {
 			klog.Errorf("Failed to get the current namespace: ", err)
 		} else if err := k8sclient.CheckConfigMapPermissions(clientset, nil, ns); err != nil {
 			klog.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
 			time.Sleep(10 * time.Second)
 			continue
+		} else if err := k8sclient.CheckPodPermissions(clientset, nil, ns); err != nil {
+			klog.Errorf("Pod permission check failed: %v, retrying in 10 seconds...", err)
+			time.Sleep(10 * time.Second)
+			continue
 		}
+		klog.Info("Authorization check passed.")
 
 		// 获取当前Pod的IP地址
 		podIP, err := k8sclient.GetCurrentPodIP(clientset)
