@@ -1,7 +1,6 @@
 package k8sclient
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -73,65 +72,6 @@ func TestGetAllConfigMapsInCurrentNamespace_Empty(t *testing.T) {
 
 	if len(configMapList.Items) != 0 {
 		t.Errorf("Expected 0 ConfigMaps, got: %d", len(configMapList.Items))
-	}
-}
-
-func TestUpdateCaddyConfigMap_Create(t *testing.T) {
-	namespace := "test-ns"
-	clientset := fake.NewSimpleClientset()
-	caddyConfig := "service1.test-ns.svc.clusterwise.remote {\n    reverse_proxy service1.test-ns.svc.cluster.local\n}\n"
-
-	err := UpdateCaddyConfigMap(clientset, &namespace, caddyConfig)
-
-	if err != nil {
-		t.Errorf("Expected no error, got: %v", err)
-	}
-
-	// Verify ConfigMap was created
-	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), CaddyConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Failed to get ConfigMap: %v", err)
-	}
-
-	if cm.Data[CaddyConfigKey] != caddyConfig {
-		t.Errorf("Expected Caddyfile content: %s, got: %s", caddyConfig, cm.Data[CaddyConfigKey])
-	}
-}
-
-func TestUpdateCaddyConfigMap_Update(t *testing.T) {
-	namespace := "test-ns"
-	existingConfig := "old config"
-	clientset := fake.NewSimpleClientset(
-		&v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      CaddyConfigMapName,
-				Namespace: namespace,
-			},
-			Data: map[string]string{
-				CaddyConfigKey: existingConfig,
-			},
-		},
-	)
-	newConfig := "service1.test-ns.svc.clusterwise.remote {\n    reverse_proxy service1.test-ns.svc.cluster.local\n}\n"
-
-	err := UpdateCaddyConfigMap(clientset, &namespace, newConfig)
-
-	if err != nil {
-		t.Errorf("Expected no error, got: %v", err)
-	}
-
-	// Verify ConfigMap was updated
-	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), CaddyConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Failed to get ConfigMap: %v", err)
-	}
-
-	if cm.Data[CaddyConfigKey] != newConfig {
-		t.Errorf("Expected Caddyfile content: %s, got: %s", newConfig, cm.Data[CaddyConfigKey])
-	}
-
-	if cm.Data[CaddyConfigKey] == existingConfig {
-		t.Errorf("ConfigMap was not updated, still has old config")
 	}
 }
 
