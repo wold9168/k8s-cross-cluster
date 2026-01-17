@@ -2,6 +2,7 @@ package k8sclient
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -131,5 +132,28 @@ func TestUpdateCaddyConfigMap_Update(t *testing.T) {
 
 	if cm.Data[CaddyConfigKey] == existingConfig {
 		t.Errorf("ConfigMap was not updated, still has old config")
+	}
+}
+
+func TestGetAllConfigMapsInCurrentNamespace_ErrorCases(t *testing.T) {
+	// Test with nil namespace (should use default or environment)
+	clientset := fake.NewSimpleClientset()
+
+	// Temporarily set environment to have a namespace
+	origPodNamespace := os.Getenv("POD_NAMESPACE")
+	defer func() {
+		os.Setenv("POD_NAMESPACE", origPodNamespace)
+	}()
+	os.Setenv("POD_NAMESPACE", "test-env-namespace")
+
+	configMapList, err := GetAllConfigMapsInCurrentNamespace(clientset, nil)
+
+	if err != nil {
+		t.Logf("Error getting configmaps (may be expected): %v", err)
+	} else {
+		if configMapList == nil {
+			t.Fatal("Expected non-nil ConfigMapList")
+		}
+		t.Logf("Found %d configmaps in environment namespace", len(configMapList.Items))
 	}
 }

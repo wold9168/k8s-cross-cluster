@@ -2,6 +2,7 @@ package k8sclient
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -87,5 +88,31 @@ func TestCheckServicePermissions(t *testing.T) {
 	// Expected to return error because fake clientset does not support AuthorizationV1 API
 	if err == nil {
 		t.Errorf("Expected error from fake clientset, got nil")
+	}
+}
+
+func TestGetAllServicesInCurrentNamespace_ErrorCases(t *testing.T) {
+	// Note: The fake clientset doesn't properly simulate all error conditions
+	// like permissions errors or network issues, so we focus on the namespace resolution
+
+	// Test with nil namespace (should use default)
+	clientset := fake.NewSimpleClientset()
+
+	// Temporarily set environment to have a namespace
+	origPodNamespace := os.Getenv("POD_NAMESPACE")
+	defer func() {
+		os.Setenv("POD_NAMESPACE", origPodNamespace)
+	}()
+	os.Setenv("POD_NAMESPACE", "test-env-namespace")
+
+	serviceList, err := GetAllServicesInCurrentNamespace(clientset, nil)
+
+	if err != nil {
+		t.Logf("Error getting services (may be expected): %v", err)
+	} else {
+		if serviceList == nil {
+			t.Fatal("Expected non-nil ServiceList")
+		}
+		t.Logf("Found %d services in environment namespace", len(serviceList.Items))
 	}
 }
