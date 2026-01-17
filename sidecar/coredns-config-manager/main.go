@@ -24,6 +24,14 @@ func main() {
 		panic(err.Error())
 	}
 
+	// 清理现场：在服务器关闭后删除 CoreDNS ConfigMap 中的管理块
+	defer func() {
+		klog.Info("Cleaning up: removing managed block from CoreDNS ConfigMap")
+		if err := k8sclient.RemoveManagedBlock(clientset); err != nil {
+			klog.Errorf("Failed to remove managed block: %v", err)
+		}
+	}()
+
 	dnsSrv := dnsserver.NewDNSServer("0.0.0.0:10053")
 	if err := dnsSrv.Start(); err != nil {
 		klog.Error("DNS server start failed: ", err.Error())
@@ -56,8 +64,13 @@ func main() {
 		}
 		klog.Infof("Current Pod IP: %s", podIP)
 
-		// TODO: 检查Corefile(kube-system/configmaps/coredns)有没有设置我们拉起来的DNS服务器为上游。如果没有，则将对应的配置项置入
-		//		记得为对应的配置项打注释，标注此为 coredns-configmap-manager 自动生成，以免引发困惑
+		// 检查Corefile(kube-system/configmaps/coredns)有没有设置我们拉起来的DNS服务器为上游
+		if err := k8sclient.UpdateCoreDNSConfigMap(clientset, podIP); err != nil {
+			klog.Errorf("Failed to update CoreDNS ConfigMap: %v, retrying in 10 seconds...", err)
+			time.Sleep(10 * time.Second)
+			continue
+		}
+
 		// TODO: 获取当前节点的 Tailscale 对端节点
 		// TODO: 提取对端节点里以 -tsgateway 结尾的节点，提取他们的 HostName，HostName 就对应集群名
 		// TODO: 根据 HostName 生成 *.*.svc.HostName.remote 这样的 DNS 记录，装入我们上面拉起来的 DNS 服务器里
