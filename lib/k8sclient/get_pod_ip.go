@@ -3,7 +3,6 @@ package k8sclient
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -81,7 +80,7 @@ func getPodIPFromK8sAPI(clientset kubernetes.Interface) (string, error) {
 // getPodNameFromCgroup derives the Pod name from /proc/self/cgroup
 // This is useful when POD_NAME env var is not set
 func getPodNameFromCgroup() (string, error) {
-	data, err := ioutil.ReadFile("/proc/self/cgroup")
+	data, err := os.ReadFile("/proc/self/cgroup")
 	if err != nil {
 		return "", err
 	}
