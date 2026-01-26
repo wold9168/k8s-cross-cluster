@@ -40,22 +40,6 @@ jobs:
             echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build and push caddy-config-manager
-        uses: docker/build-push-action@v6
-        with:
-          context: ./sidecar/caddy-config-manager
-          file: ./sidecar/caddy-config-manager/Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository }}/caddy-config-manager:${{ steps.tag.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push coredns-config-manager
-        uses: docker/build-push-action@v6
-        with:
-          context: ./sidecar/coredns-config-manager
-          file: ./sidecar/coredns-config-manager/Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository }}/coredns-config-manager:${{ steps.tag.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build and push images using Makefile
+        run: |
+          make sidecar-image-push TAG=${{ steps.tag.outputs.tag }}
