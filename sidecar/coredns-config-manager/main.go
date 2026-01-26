@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -9,7 +8,6 @@ import (
 	"k8s.io/klog/v2"
 
 	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
-	tailscaledclient "github.com/wold9168/k8s-cross-cluster/lib/tailscaled-client"
 	dnsserver "github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/dnsserver"
 )
 
@@ -66,24 +64,12 @@ func main() {
 		}
 
 		// 获取当前节点的 Tailscale 对端节点
-		peers, err := getTailscalePeers()
+		gatewayHostNames, err := GetGatewayHostNamesFromPeers()
 		if err != nil {
-			klog.Errorf("Failed to get Tailscale peers: %v", err)
+			klog.Errorf("Failed to get gateway hostnames from peers: %v", err)
 		} else {
-			klog.Infof("Retrieved %d Tailscale peers", len(peers))
-
-			// 提取对端节点里以 -tsgateway 结尾的节点，提取他们的 HostName，HostName 就对应集群名
-			gatewayHostNames := extractGatewayHostNames(peers)
-			klog.Infof("Found %d gateway nodes", len(gatewayHostNames))
-
 			// 根据 HostName 生成 *.*.svc.HostName.remote 这样的 DNS 记录，装入我们上面拉起来的 DNS 服务器里
-			updateDNSRecordsForGateways(dnsSrv, gatewayHostNames)
-
-			// 打印对端节点信息
-			for _, peer := range peers {
-				klog.V(4).Infof("Peer: ID=%s, HostName=%s, DNSName=%s, IPs=%v, Online=%t",
-					peer.ID, peer.HostName, peer.DNSName, peer.TailscaleIPs, peer.Online)
-			}
+			UpdateDNSRecordsForGateways(dnsSrv, gatewayHostNames)
 		}
 
 		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
@@ -126,153 +112,4 @@ func ensureCoreDNSConfig(clientset kubernetes.Interface, upstreamServer string) 
 
 	klog.Info("Successfully updated CoreDNS configuration to forward *.remote queries to ", upstreamServer)
 	return nil
-}
-
-// PeerInfo holds information about a Tailscale peer
-type PeerInfo struct {
-	ID           string
-	HostName     string
-	DNSName      string
-	TailscaleIPs []string
-	Online       bool
-}
-
-// getTailscalePeers retrieves the current node's Tailscale peer nodes
-func getTailscalePeers() ([]PeerInfo, error) {
-	client := tailscaledclient.New()
-	ctx := context.Background()
-
-	peers, err := client.Peers(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Tailscale peers: %w", err)
-	}
-
-	peerInfos := make([]PeerInfo, 0, len(peers))
-	for _, peer := range peers {
-		// Clean up DNS name (remove trailing dot if present)
-		dnsName := peer.DNSName
-		if len(dnsName) > 0 && dnsName[len(dnsName)-1] == '.' {
-			dnsName = dnsName[:len(dnsName)-1]
-		}
-
-		// Convert Tailscale IPs to strings
-		ipStrings := make([]string, len(peer.TailscaleIPs))
-		for i, ip := range peer.TailscaleIPs {
-			ipStrings[i] = ip.String()
-		}
-
-		peerInfo := PeerInfo{
-			ID:           string(peer.ID),
-			HostName:     peer.HostName,
-			DNSName:      dnsName,
-			TailscaleIPs: ipStrings,
-			Online:       peer.Online,
-		}
-		peerInfos = append(peerInfos, peerInfo)
-	}
-
-	return peerInfos, nil
-}
-
-// extractGatewayHostNames extracts hostnames of peers that end with "-tsgateway"
-func extractGatewayHostNames(peers []PeerInfo) []string {
-	var gatewayHostNames []string
-
-	for _, peer := range peers {
-		if len(peer.HostName) >= 10 && peer.HostName[len(peer.HostName)-10:] == "-tsgateway" {
-			gatewayHostNames = append(gatewayHostNames, peer.HostName)
-		}
-	}
-
-	return gatewayHostNames
-}
-
-// updateDNSRecordsForGateways generates and adds DNS records for the gateways to the DNS server
-func updateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer, gatewayHostNames []string) {
-	// Clear existing remote records before adding new ones
-	// This prevents accumulation of stale records
-	for _, gatewayName := range gatewayHostNames {
-		// Discover services from the remote cluster
-		remoteServices := discoverRemoteClusterServices(gatewayName)
-
-		// Add DNS records for each discovered service
-		for _, svc := range remoteServices {
-			// Format: service.namespace.svc.clustername.remote
-			recordName := fmt.Sprintf("%s.%s.svc.%s.remote.", svc.Name, svc.Namespace, gatewayName)
-
-			// Add A record for the service
-			dnsSrv.AddRecord(recordName, 1 /* dns.TypeA */, 300 /* TTL */, svc.ClusterIP)
-			klog.Infof("Added DNS A record: %s -> %s", recordName, svc.ClusterIP)
-
-			// Add SRV record for the service if it has ports
-			for _, port := range svc.Ports {
-				srvRecordName := fmt.Sprintf("_%s._%s.%s.%s.svc.%s.remote.",
-					port.Name, port.Protocol, svc.Name, svc.Namespace, gatewayName)
-
-				// Format for SRV record: priority weight port target
-				srvTarget := fmt.Sprintf("%s.%s.svc.%s.remote.", svc.Name, svc.Namespace, gatewayName)
-				srvData := fmt.Sprintf("0 50 %d %s", port.Port, srvTarget)
-
-				dnsSrv.AddRecord(srvRecordName, 33 /* dns.TypeSRV */, 300 /* TTL */, srvData)
-				klog.Infof("Added DNS SRV record: %s -> %s", srvRecordName, srvData)
-			}
-		}
-	}
-}
-
-// RemoteService represents a service discovered in a remote cluster
-type RemoteService struct {
-	Name      string
-	Namespace string
-	ClusterIP string
-	Ports     []ServicePort
-}
-
-// ServicePort represents a port exposed by a service
-type ServicePort struct {
-	Name     string
-	Port     int32
-	Protocol string
-}
-
-// discoverRemoteClusterServices discovers services in the remote cluster
-// In a real implementation, this would connect to the remote cluster and fetch services
-// For now, we'll simulate discovery with mock data
-func discoverRemoteClusterServices(clusterName string) []RemoteService {
-	// In a real implementation, this function would:
-	// 1. Establish connection to the remote cluster using the clusterName
-	// 2. Query the remote cluster's API server for services
-	// 3. Return the discovered services
-
-	// For demonstration purposes, returning mock services
-	// In reality, you would implement actual service discovery here
-	mockServices := []RemoteService{
-		{
-			Name:      "nginx-service",
-			Namespace: "default",
-			ClusterIP: "10.96.10.10",
-			Ports: []ServicePort{
-				{
-					Name:     "http",
-					Port:     80,
-					Protocol: "TCP",
-				},
-			},
-		},
-		{
-			Name:      "database-service",
-			Namespace: "backend",
-			ClusterIP: "10.96.10.20",
-			Ports: []ServicePort{
-				{
-					Name:     "postgres",
-					Port:     5432,
-					Protocol: "TCP",
-				},
-			},
-		},
-	}
-
-	klog.V(4).Infof("Discovered %d services in cluster %s", len(mockServices), clusterName)
-	return mockServices
 }
