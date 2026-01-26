@@ -3,16 +3,23 @@ COMMIT_HASH := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 # Get current username
 USERNAME := $(shell whoami)
 # Image name and tag
-IMAGE := $(USERNAME)/caddy-config-manager:$(COMMIT_HASH)
+CADDY_CONFIG_MANAGER_IMAGE_NAME := $(USERNAME)/caddy-config-manager:$(COMMIT_HASH)
+COREDNS_CONFIG_MANAGER_IMAGE_NAME := $(USERNAME)/coredns-config-manager:$(COMMIT_HASH)
 
-sidecar-image-build: caddy-config-manager-image-build
+sidecar-image-build: caddy-config-manager-image-build coredns-config-manager-image-build ## Build all the sidecar image.
 .PHONY: sidecar-image-build
 
 caddy-config-manager-image-build: ## Build Docker image with tag $(USERNAME)/caddy-config-manager:<commit-hash>
 	docker buildx build -f sidecar/caddy-config-manager/Dockerfile \
-      --tag $(IMAGE) \
+      --tag $(CADDY_CONFIG_MANAGER_IMAGE_NAME) \
       .
 .PHONY: caddy-config-manager-image-build
+
+coredns-config-manager-image-build: ## Build Docker image with tag $(USERNAME)/caddy-config-manager:<commit-hash>
+	docker buildx build -f sidecar/coredns-config-manager/Dockerfile \
+	--tag $(COREDNS_CONFIG_MANAGER_IMAGE_NAME) \
+	.
+.PHONY: coredns-config-manager-image-build
 
 test: ## Run test
 	cd ./lib/k8sclient/ && go test -v .
