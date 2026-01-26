@@ -79,8 +79,8 @@ func getNamespaceFromKubeconfig() (string, error) {
 	return context.Namespace, nil
 }
 
-// getCurrentNamespaceOrProvided returns the provided namespace if not nil, otherwise returns the current namespace
-func getCurrentNamespaceOrProvided(namespace *string) string {
+// GetCurrentNamespaceOrProvided returns the provided namespace if not nil, otherwise returns the current namespace
+func GetCurrentNamespaceOrProvided(namespace *string) string {
 	if namespace != nil {
 		return *namespace
 	}

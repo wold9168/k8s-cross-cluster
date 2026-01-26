@@ -1,12 +1,12 @@
 package generator
 
 import (
-	"context"
-
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
+	// Import the k8sclient package to use standardized ConfigMap operations
+	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
 )
 
 // GenerateCrossClusterServiceDomains generates cross-cluster access domains for services
@@ -21,7 +21,8 @@ func GenerateCrossClusterServiceDomains(clientset kubernetes.Interface, serviceL
 
 	// Read cluster name from ConfigMap
 	clusterName := "default-cluster-name" // Default fallback value
-	configMap, err := clientset.CoreV1().ConfigMaps("default").Get(context.TODO(), "tailscale-cluster-name", metav1.GetOptions{})
+	defaultNs := "default"
+	configMap, err := k8sclient.GetConfigMap(clientset, &defaultNs, "tailscale-cluster-name")
 	if err != nil {
 		klog.Warningf("Failed to get tailscale-cluster-name ConfigMap: %v, using default cluster name '%s'", err, clusterName)
 	} else {
