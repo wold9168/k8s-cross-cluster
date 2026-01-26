@@ -15,7 +15,7 @@ caddy-config-manager-image-build: ## Build Docker image with tag $(USERNAME)/cad
       .
 .PHONY: caddy-config-manager-image-build
 
-coredns-config-manager-image-build: ## Build Docker image with tag $(USERNAME)/caddy-config-manager:<commit-hash>
+coredns-config-manager-image-build: ## Build Docker image with tag $(USERNAME)/coredns-config-manager:<commit-hash>
 	docker buildx build -f sidecar/coredns-config-manager/Dockerfile \
 	--tag $(COREDNS_CONFIG_MANAGER_IMAGE_NAME) \
 	.
