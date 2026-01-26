@@ -17,6 +17,7 @@ caddy-config-manager-image-build: ## Build Docker image with tag $(USERNAME)/cad
 test: ## Run test
 	cd ./lib/k8sclient/ && go test -v .
 	cd ./sidecar/caddy-config-manager && go test -v ./...
+	cd ./sidecar/coredns-config-manager && go test -v ./...
 .PHONY: test
 
 help: ## Show this help
