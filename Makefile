@@ -29,6 +29,7 @@ caddy-config-manager-image-build: ## Build Docker image with tag $(CADDY_CONFIG_
       --tag $(CADDY_CONFIG_MANAGER_IMAGE_NAME) \
       --cache-from type=gha \
       --cache-to type=gha,mode=max \
+      --load \
       .
 .PHONY: caddy-config-manager-image-build
 
@@ -37,6 +38,7 @@ coredns-config-manager-image-build: ## Build Docker image with tag $(COREDNS_CON
 	--tag $(COREDNS_CONFIG_MANAGER_IMAGE_NAME) \
 	--cache-from type=gha \
 	--cache-to type=gha,mode=max \
+	--load \
 	.
 .PHONY: coredns-config-manager-image-build
 
