@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -9,6 +10,24 @@ import (
 	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
 	"github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager/pkg/generator"
 )
+
+func CheckPermissions(clientset kubernetes.Interface, namespace *string) error {
+	ctx := context.Background()
+	ns := k8sclient.GetCurrentNamespaceOrProvided(namespace)
+
+	klog.Infof("Checking permissions in namespace: %s", ns)
+
+	if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
+		return err
+	}
+
+	if err := k8sclient.CheckServicePermissions(clientset, ctx, ns); err != nil {
+		return err
+	}
+
+	klog.Infof("All required permissions verified in namespace: %s", ns)
+	return nil
+}
 
 func main() {
 	// Authentication
@@ -26,7 +45,7 @@ func main() {
 
 	for {
 		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps 和读取 Services
-		if err := k8sclient.CheckPermissions(clientset, nil); err != nil {
+		if err := CheckPermissions(clientset, nil); err != nil {
 			klog.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
 			time.Sleep(10 * time.Second)
 			continue
