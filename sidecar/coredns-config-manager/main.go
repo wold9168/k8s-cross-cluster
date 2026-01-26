@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -56,8 +57,13 @@ func main() {
 		}
 		klog.Infof("Current Pod IP: %s", podIP)
 
-		// TODO: 检查Corefile(kube-system/configmaps/coredns)有没有设置我们拉起来的DNS服务器为上游。如果没有，则将对应的配置项置入
-		//		记得为对应的配置项打注释，标注此为 coredns-configmap-manager 自动生成，以免引发困惑
+		// Check and update CoreDNS configuration to forward *.remote queries to our DNS server
+		if err := ensureCoreDNSConfig(clientset, dnsSrv.GetAddr()); err != nil {
+			klog.Errorf("Failed to ensure CoreDNS configuration: %v", err)
+		} else {
+			klog.Info("CoreDNS configuration is properly set up")
+		}
+
 		// TODO: 获取当前节点的 Tailscale 对端节点
 		// TODO: 提取对端节点里以 -tsgateway 结尾的节点，提取他们的 HostName，HostName 就对应集群名
 		// TODO: 根据 HostName 生成 *.*.svc.HostName.remote 这样的 DNS 记录，装入我们上面拉起来的 DNS 服务器里
@@ -65,4 +71,41 @@ func main() {
 		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
 		time.Sleep(10 * time.Second)
 	}
+}
+
+// ensureCoreDNSConfig checks if the CoreDNS configuration contains our upstream configuration
+// and updates it if necessary
+func ensureCoreDNSConfig(clientset kubernetes.Interface, upstreamServer string) error {
+	// Get the current CoreDNS ConfigMap
+	namespace := CoreDNSNamespace
+	coreDNSCM, err := k8sclient.GetConfigMap(clientset, &namespace, CoreDNSConfigMapName)
+	if err != nil {
+		return fmt.Errorf("failed to get CoreDNS ConfigMap: %w", err)
+	}
+
+	// Get the current Corefile content
+	currentCorefile, exists := coreDNSCM.Data[CoreDNSConfigKey]
+	if !exists {
+		return fmt.Errorf("Corefile key '%s' does not exist in ConfigMap", CoreDNSConfigKey)
+	}
+
+	// Check if update is needed
+	if !needsUpdate(currentCorefile, upstreamServer) {
+		klog.V(4).Info("CoreDNS configuration is already up to date")
+		return nil
+	}
+
+	// Update the Corefile content
+	updatedCorefile := updateCorefile(currentCorefile, upstreamServer)
+
+	// Update the ConfigMap with the new Corefile
+	coreDNSCM.Data[CoreDNSConfigKey] = updatedCorefile
+	namespace = CoreDNSNamespace
+	_, err = k8sclient.UpdateExistingConfigMap(clientset, &namespace, coreDNSCM)
+	if err != nil {
+		return fmt.Errorf("failed to update CoreDNS ConfigMap: %w", err)
+	}
+
+	klog.Info("Successfully updated CoreDNS configuration to forward *.remote queries to ", upstreamServer)
+	return nil
 }
