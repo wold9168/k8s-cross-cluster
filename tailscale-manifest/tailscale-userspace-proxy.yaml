@@ -98,6 +98,14 @@ spec:
               mountPath: /etc/caddy/Caddyfile
               subPath: Caddyfile
           # Caddy 将监听 2015（HTTP）和 2016（HTTPS）
+        # ===== CoreDNS Config Manager 容器 =====
+        - name: coredns-config-manager
+          image: ghcr.io/wold9168/k8s-cross-cluster/coredns-config-manager:latest
+          imagePullPolicy: Always
+        # ===== Caddy Config Manager 容器 =====
+        - name: caddy-config-manager
+          image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:latest
+          imagePullPolicy: Always
       volumes:
         - name: tailscale-state
           emptyDir: {}

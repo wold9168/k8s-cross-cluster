@@ -15,10 +15,21 @@ metadata:
   labels:
     name: k8s-cross-cluster
 rules:
+  # Tailscale original permissions for secrets
   - apiGroups: [""]
     resources: ["secrets"]
     resourceNames: ["tailscale"]
     verbs: ["get", "update", "create"]
+  # Permissions for coredns-config-manager and caddy-config-manager in default namespace
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "create", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -34,4 +45,33 @@ subjects:
 roleRef:
   kind: Role
   name: tailscale
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tailscale-kube-system
+  namespace: kube-system
+  labels:
+    name: k8s-cross-cluster
+rules:
+  # Permissions for coredns-config-manager in kube-system namespace
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tailscale-kube-system
+  namespace: kube-system
+  labels:
+    name: k8s-cross-cluster
+subjects:
+  - kind: ServiceAccount
+    name: tailscale
+    namespace: default
+roleRef:
+  kind: Role
+  name: tailscale-kube-system
   apiGroup: rbac.authorization.k8s.io
