@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -31,16 +32,16 @@ func main() {
 		panic(err.Error())
 	}
 	defer dnsSrv.Stop()
-
+	ctx := context.Background()
 	for {
 		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps 和读取 Pods
 		if ns, err := k8sclient.GetCurrentNamespace(); err != nil {
 			klog.Error("Failed to get the current namespace: ", err)
-		} else if err := k8sclient.CheckConfigMapPermissions(clientset, nil, ns); err != nil {
+		} else if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
 			klog.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
 			time.Sleep(10 * time.Second)
 			continue
-		} else if err := k8sclient.CheckPodPermissions(clientset, nil, ns); err != nil {
+		} else if err := k8sclient.CheckPodPermissions(clientset, ctx, ns); err != nil {
 			klog.Errorf("Pod permission check failed: %v, retrying in 10 seconds...", err)
 			time.Sleep(10 * time.Second)
 			continue
