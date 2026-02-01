@@ -100,11 +100,11 @@ spec:
           # Caddy 将监听 2015（HTTP）和 2016（HTTPS）
         # ===== CoreDNS Config Manager 容器 =====
         - name: coredns-config-manager
-          image: ghcr.io/wold9168/k8s-cross-cluster/coredns-config-manager:latest
+          image: ghcr.io/wold9168/k8s-cross-cluster/coredns-config-manager:snapshot-dd2cb52cc98dbf566c70f2ecff3d252c9869f619
           imagePullPolicy: Always
         # ===== Caddy Config Manager 容器 =====
         - name: caddy-config-manager
-          image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:latest
+          image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:snapshot-dd2cb52cc98dbf566c70f2ecff3d252c9869f619
           imagePullPolicy: Always
       volumes:
         - name: tailscale-state
