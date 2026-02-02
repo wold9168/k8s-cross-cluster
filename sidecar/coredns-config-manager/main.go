@@ -58,7 +58,8 @@ func main() {
 		klog.Infof("Current Pod IP: %s", podIP)
 
 		// Check and update CoreDNS configuration to forward *.remote queries to our DNS server
-		if err := ensureCoreDNSConfig(clientset, dnsSrv.GetAddr()); err != nil {
+		localhostIP:="127.0.0.1" // Loopback. The DNS SubServer is supported to be deployed in the same pod.
+		if err := ensureCoreDNSConfig(clientset, localhostIP); err != nil {
 			klog.Errorf("Failed to ensure CoreDNS configuration: %v", err)
 		} else {
 			klog.Info("CoreDNS configuration is properly set up")
