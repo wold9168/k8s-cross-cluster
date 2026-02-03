@@ -21,9 +21,6 @@ COREDNS_CONFIG_MANAGER_IMAGE_NAME := $(REGISTRY)/$(REPO_NAME)/coredns-config-man
 sidecar-image-build: caddy-config-manager-image-build coredns-config-manager-image-build ## Build all the sidecar image.
 .PHONY: sidecar-image-build
 
-sidecar-image-push: caddy-config-manager-image-push coredns-config-manager-image-push ## Push all the sidecar images.
-.PHONY: sidecar-image-push
-
 caddy-config-manager-image-build: ## Build Docker image with tag $(CADDY_CONFIG_MANAGER_IMAGE_NAME)
 	docker buildx build -f sidecar/caddy-config-manager/Dockerfile \
       --tag $(CADDY_CONFIG_MANAGER_IMAGE_NAME) \
@@ -41,14 +38,6 @@ coredns-config-manager-image-build: ## Build Docker image with tag $(COREDNS_CON
 	--load \
 	.
 .PHONY: coredns-config-manager-image-build
-
-caddy-config-manager-image-push: caddy-config-manager-image-build ## Push Docker image $(CADDY_CONFIG_MANAGER_IMAGE_NAME)
-	docker push $(CADDY_CONFIG_MANAGER_IMAGE_NAME)
-.PHONY: caddy-config-manager-image-push
-
-coredns-config-manager-image-push: coredns-config-manager-image-build ## Push Docker image $(COREDNS_CONFIG_MANAGER_IMAGE_NAME)
-	docker push $(COREDNS_CONFIG_MANAGER_IMAGE_NAME)
-.PHONY: coredns-config-manager-image-push
 
 test: ## Run test
 	cd ./lib/k8sclient/ && go test -v .

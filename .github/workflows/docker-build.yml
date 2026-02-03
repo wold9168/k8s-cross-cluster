@@ -40,6 +40,13 @@ jobs:
             echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build and push images using Makefile
+      - name: Build images using Makefile
         run: |
-          make sidecar-image-push TAG=${{ steps.tag.outputs.tag }}
+          make sidecar-image-build TAG=${{ steps.tag.outputs.tag }} REPO_NAME=${{ github.repository }}
+
+      - name: Push images to registry
+        run: |
+          docker push ghcr.io/${{ github.repository }}/caddy-config-manager:${{ steps.tag.outputs.tag }}
+          docker push ghcr.io/${{ github.repository }}/caddy-config-manager:latest
+          docker push ghcr.io/${{ github.repository }}/coredns-config-manager:${{ steps.tag.outputs.tag }}
+          docker push ghcr.io/${{ github.repository }}/coredns-config-manager:latest
