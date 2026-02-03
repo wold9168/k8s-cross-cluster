@@ -15,10 +15,10 @@ VERBOSE=false
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 --authkey <TS_AUTHKEY> [--login-server <LOGIN_SERVER_URL>] [--cluster-name <CLUSTER_NAME>] [--context <CLUSTER_CONTEXT>] [-v]"
+    echo "Usage: $0 --authkey <TS_AUTHKEY> --cluster-name <CLUSTER_NAME> [--login-server <LOGIN_SERVER_URL>] [--context <CLUSTER_CONTEXT>] [-v]"
     echo "  --authkey: Tailscale auth key (required)"
     echo "  --login-server: Tailscale login server URL (optional, uses default if not specified)"
-    echo "  --cluster-name: Cluster name for identification (optional, required for cross-cluster scenarios)"
+    echo "  --cluster-name: Cluster name for identification (required)"
     echo "  --context: Kubernetes cluster context (optional, uses current context if not specified)"
     echo "  -v: Enable verbose output for debugging"
     echo ""
@@ -40,8 +40,13 @@ validate_arguments() {
         echo "Error: --authkey is required."
         usage
     fi
-
     verbose_log "Validated required argument: AUTH_KEY is set"
+
+    if [[ -z "$CLUSTER_NAME" ]]; then
+        echo "Error: --cluster-name is required."
+        usage
+    fi
+    verbose_log "Validated required argument: CLUSTER_NAME is set"
 }
 
 # Function to validate kubectl availability
@@ -137,7 +142,7 @@ update_extra_args_configmap() {
         # If cluster-name is set, add TS_HOSTNAME to the ConfigMap
         TS_HOSTNAME_VALUE="${CLUSTER_NAME}-tsgateway"
         verbose_log "Setting TS_HOSTNAME to: $TS_HOSTNAME_VALUE"
-        
+
         # Check if TS_HOSTNAME already exists in the ConfigMap
         if grep -q "TS_HOSTNAME:" "$TEMP_CONFIGMAP_FILE"; then
             # Replace existing value
@@ -199,12 +204,8 @@ apply_userspace_proxy() {
 
 # Function to apply the cluster name ConfigMap
 apply_cluster_name_configmap() {
-    if [[ -n "$CLUSTER_NAME" ]]; then
-        echo "Applying Tailscale cluster name ConfigMap with name: $CLUSTER_NAME"
-        update_cluster_name_configmap
-    else
-        verbose_log "Cluster name not specified, skipping cluster name ConfigMap"
-    fi
+    echo "Applying Tailscale cluster name ConfigMap with name: $CLUSTER_NAME"
+    update_cluster_name_configmap
 }
 
 # Function to display completion message

@@ -23,7 +23,10 @@ spec:
     - name: caddy-https
       port: 443
       targetPort: 2016
-  type: ClusterIP  # 仅集群内可访问
+    - name: coredns-subdnsserver
+      port: 10053
+      targetPort: 10053
+  type: NodePort
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -102,6 +105,13 @@ spec:
         - name: coredns-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/coredns-config-manager:snapshot-accb992928d035bb7d97ae7f181e509b3f153d32
           imagePullPolicy: Always
+          ports:
+            - containerPort: 10053
+              name: dns-tcp
+              protocol: tcp
+            - containerPort: 10053
+              name: dns-udp
+              protocol: udp
         # ===== Caddy Config Manager 容器 =====
         - name: caddy-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:snapshot-accb992928d035bb7d97ae7f181e509b3f153d32

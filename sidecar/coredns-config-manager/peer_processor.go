@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	tailscaledclient "github.com/wold9168/k8s-cross-cluster/lib/tailscaled-client"
-	"k8s.io/klog/v2"
 )
 
 // PeerInfo holds information about a Tailscale peer
@@ -52,38 +51,4 @@ func getTailscalePeers() ([]PeerInfo, error) {
 	}
 
 	return peerInfos, nil
-}
-
-// extractGatewayHostNames extracts hostnames of peers that end with "-tsgateway"
-func extractGatewayHostNames(peers []PeerInfo) []string {
-	var gatewayHostNames []string
-
-	for _, peer := range peers {
-		if len(peer.HostName) >= 10 && peer.HostName[len(peer.HostName)-10:] == "-tsgateway" {
-			gatewayHostNames = append(gatewayHostNames, peer.HostName)
-		}
-	}
-
-	return gatewayHostNames
-}
-
-// GetGatewayHostNamesFromPeers retrieves Tailscale peers and extracts gateway hostnames
-func GetGatewayHostNamesFromPeers() ([]string, error) {
-	peers, err := getTailscalePeers()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Tailscale peers: %w", err)
-	}
-
-	klog.Infof("Retrieved %d Tailscale peers", len(peers))
-
-	// Print peer information for debugging
-	for _, peer := range peers {
-		klog.V(4).Infof("Peer: ID=%s, HostName=%s, DNSName=%s, IPs=%v, Online=%t",
-			peer.ID, peer.HostName, peer.DNSName, peer.TailscaleIPs, peer.Online)
-	}
-
-	gatewayHostNames := extractGatewayHostNames(peers)
-	klog.Infof("Found %d gateway nodes", len(gatewayHostNames))
-
-	return gatewayHostNames, nil
 }
