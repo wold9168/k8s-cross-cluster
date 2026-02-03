@@ -47,4 +47,6 @@ jobs:
       - name: Push images to registry
         run: |
           docker push ghcr.io/${{ github.repository }}/caddy-config-manager:${{ steps.tag.outputs.tag }}
+          docker push ghcr.io/${{ github.repository }}/caddy-config-manager:latest
           docker push ghcr.io/${{ github.repository }}/coredns-config-manager:${{ steps.tag.outputs.tag }}
+          docker push ghcr.io/${{ github.repository }}/coredns-config-manager:latest
