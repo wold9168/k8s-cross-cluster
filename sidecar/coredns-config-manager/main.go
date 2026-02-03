@@ -58,20 +58,15 @@ func main() {
 		klog.Infof("Current Pod IP: %s", podIP)
 
 		// Check and update CoreDNS configuration to forward *.remote queries to our DNS server
-		if err := ensureCoreDNSConfig(clientset, dnsSrv.GetAddr()); err != nil {
+		localhostIP := "127.0.0.1" // Loopback. The DNS SubServer is supported to be deployed in the same pod.
+		if err := ensureCoreDNSConfig(clientset, localhostIP); err != nil {
 			klog.Errorf("Failed to ensure CoreDNS configuration: %v", err)
 		} else {
 			klog.Info("CoreDNS configuration is properly set up")
 		}
 
-		// 获取当前节点的 Tailscale 对端节点
-		gatewayHostNames, err := GetGatewayHostNamesFromPeers()
-		if err != nil {
-			klog.Errorf("Failed to get gateway hostnames from peers: %v", err)
-		} else {
-			// 根据 HostName 生成 *.*.svc.HostName.remote 这样的 DNS 记录，装入我们上面拉起来的 DNS 服务器里
-			UpdateDNSRecordsForGateways(dnsSrv, gatewayHostNames)
-		}
+		// 获取当前节点的 Tailscale 对端节点，并根据 HostName 生成 *.*.svc.HostName.remote 这样的 DNS 记录，装入我们上面拉起来的 DNS 服务器里
+		UpdateDNSRecordsForGateways(dnsSrv)
 
 		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
 		time.Sleep(10 * time.Second)
