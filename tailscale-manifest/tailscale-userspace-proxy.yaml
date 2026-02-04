@@ -112,6 +112,9 @@ spec:
             - containerPort: 10053
               name: dns-udp
               protocol: UDP
+          volumeMounts:
+            - name: tailscale-socket
+              mountPath: /run/tailscale
         # ===== Caddy Config Manager 容器 =====
         - name: caddy-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:latest
