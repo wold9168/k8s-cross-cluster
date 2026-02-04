@@ -42,6 +42,10 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 		}
 		recordName := fmt.Sprintf("*.*.svc.%s.remote.", nodename)
 
+		// Remove existing DNS records for this domain before adding new ones
+		dnsSrv.RemoveRecords(recordName)
+		klog.Infof("Cleared existing DNS records for: %s", recordName)
+
 		clusterIps := peer.TailscaleIPs
 		klog.Infof("Fetch Addresses from PeerInfo. nodename, CurAddr: %s, %v", nodename, clusterIps)
 
