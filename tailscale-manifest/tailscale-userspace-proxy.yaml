@@ -108,10 +108,10 @@ spec:
           ports:
             - containerPort: 10053
               name: dns-tcp
-              protocol: tcp
+              protocol: TCP
             - containerPort: 10053
               name: dns-udp
-              protocol: udp
+              protocol: UDP
         # ===== Caddy Config Manager 容器 =====
         - name: caddy-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:latest
