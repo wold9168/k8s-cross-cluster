@@ -3,6 +3,7 @@ package dnsserver
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/miekg/dns"
@@ -76,6 +77,7 @@ func (s *DNSServer) GetRecords(name string) []DNSRecord {
 	}
 	return nil
 }
+
 // GetAllRecords 获取所有DNS记录，用于调试
 func (s *DNSServer) GetAllRecords() map[string][]DNSRecord {
 	s.mu.RLock()
@@ -96,6 +98,81 @@ func (s *DNSServer) GetAllRecords() map[string][]DNSRecord {
 }
 
 // handleDNSRequest 处理DNS请求
+// buildAnswersForQuery builds DNS resource records for a domain and query type
+func buildAnswersForQuery(domain string, qtype uint16, records []DNSRecord) []dns.RR {
+	var answers []dns.RR
+	for _, record := range records {
+		if record.Type == qtype {
+			rr, err := dns.NewRR(fmt.Sprintf("%s %d IN %s %s", domain, record.TTL, dns.TypeToString[record.Type], record.Value))
+			if err != nil {
+				klog.Errorf("Failed to create DNS RR: %v", err)
+				continue
+			}
+			answers = append(answers, rr)
+		}
+	}
+	return answers
+}
+
+// countLabels 计算 DNS 域名的标签数量
+// 例如："example.com." 返回 2，"foo.example.com." 返回 3
+func countLabels(domain string) int {
+	// 移除结尾的点号（如果有）
+	if len(domain) > 0 && domain[len(domain)-1] == '.' {
+		domain = domain[:len(domain)-1]
+	}
+
+	// 如果为空，返回 0
+	if len(domain) == 0 {
+		return 0
+	}
+
+	// 按点号分割并计算非空标签数量
+	count := 0
+	for _, part := range strings.Split(domain, ".") {
+		if part != "" {
+			count++
+		}
+	}
+
+	return count
+}
+
+// findMatchingWildcardRecords 查找与给定域名匹配的通配符记录
+// 例如：domain 为 "foo.example.com."，会查找 "*.example.com." 类型的记录
+// DNS 通配符只匹配直接子域，不匹配多级子域
+//   - *.example.com. 匹配 foo.example.com.
+//   - *.example.com. 不匹配 foo.bar.example.com.
+//   - *.example.com. 不匹配 example.com.
+func findMatchingWildcardRecords(domain string, records map[string][]DNSRecord) []DNSRecord {
+	var matchingRecords []DNSRecord
+
+	domainLabels := countLabels(domain)
+
+	for wildcardPattern, recs := range records {
+		// 检查是否是通配符模式（以 * 开头）
+		if len(wildcardPattern) > 0 && wildcardPattern[0] == '*' {
+			// 获取通配符后的后缀（例如 "*.example.com." -> ".example.com."）
+			suffix := wildcardPattern[1:]
+
+			// 检查域名是否以该后缀结尾
+			if len(domain) > len(suffix) && domain[len(domain)-len(suffix):] == suffix {
+				// 计算通配符模式中的标签数量（包括通配符 *）
+				// *.example.com. 的标签数应该是 3（*, example, com）
+				wildcardLabels := countLabels(wildcardPattern)
+
+				// 检查标签（子域）数量是否匹配
+				if domainLabels == wildcardLabels {
+					// 匹配成功，添加这些记录
+					matchingRecords = append(matchingRecords, recs...)
+				}
+			}
+		}
+	}
+
+	return matchingRecords
+}
+
 func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	msg := new(dns.Msg)
 	msg.SetReply(r)
@@ -111,15 +188,16 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		klog.V(4).Infof("DNS query: %s type %d from %s", domain, qtype, w.RemoteAddr())
 
 		if records, ok := s.records[domain]; ok {
-			for _, record := range records {
-				if record.Type == qtype {
-					rr, err := dns.NewRR(fmt.Sprintf("%s %d IN %s %s", domain, record.TTL, dns.TypeToString[record.Type], record.Value))
-					if err != nil {
-						klog.Errorf("Failed to create DNS RR: %v", err)
-						continue
-					}
-					msg.Answer = append(msg.Answer, rr)
-				}
+			// 精确匹配
+			answers := buildAnswersForQuery(domain, qtype, records)
+			msg.Answer = append(msg.Answer, answers...)
+		} else {
+			// 尝试通配符匹配
+			wildcardRecords := findMatchingWildcardRecords(domain, s.records)
+			if len(wildcardRecords) > 0 {
+				answers := buildAnswersForQuery(domain, qtype, wildcardRecords)
+				msg.Answer = append(msg.Answer, answers...)
+				klog.V(4).Infof("DNS wildcard matched: %s -> records from wildcard pattern", domain)
 			}
 		}
 	}
