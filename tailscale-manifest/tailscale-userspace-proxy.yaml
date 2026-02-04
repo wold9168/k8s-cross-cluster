@@ -107,10 +107,6 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 10053
-              name: dns-tcp
-              protocol: TCP
-            - containerPort: 10053
-              name: dns-udp
               protocol: UDP
           volumeMounts:
             - name: tailscale-socket
