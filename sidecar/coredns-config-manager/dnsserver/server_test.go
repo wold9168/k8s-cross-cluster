@@ -293,3 +293,53 @@ func TestDNSServer_WildcardDifferentDomains(t *testing.T) {
 	assert.Equal(t, dns.RcodeSuccess, r3.Rcode)
 	assert.Len(t, r3.Answer, 0)
 }
+
+func TestDNSServer_MultiLevelWildcardAndWildcardDomain(t *testing.T) {
+	server := NewDNSServer("127.0.0.1:15366")
+	server.Start()
+	defer server.Stop()
+
+	time.Sleep(100 * time.Millisecond)
+
+	// 添加多级通配符记录
+	server.AddRecord("*.*.svc.node1.remote.", dns.TypeA, 300, "100.64.0.17")
+
+	c := new(dns.Client)
+
+	// 测试1: 查询包含通配符的域名 foo.*.svc.node1.remote
+	// 应该返回精确匹配（因为记录名中包含 *）
+	m1 := new(dns.Msg)
+	m1.SetQuestion("foo.*.svc.node1.remote.", dns.TypeA)
+	m1.RecursionDesired = false
+
+	r1, _, err := c.Exchange(m1, server.GetAddr())
+	assert.NoError(t, err)
+	assert.Equal(t, dns.RcodeSuccess, r1.Rcode)
+	assert.Len(t, r1.Answer, 1)
+	assert.Equal(t, "100.64.0.17", r1.Answer[0].(*dns.A).A.String())
+
+	// 测试2: 查询完全通配符域名 *.*.svc.node1.remote
+	// 应该返回精确匹配
+	m2 := new(dns.Msg)
+	m2.SetQuestion("*.*.svc.node1.remote.", dns.TypeA)
+	m2.RecursionDesired = false
+
+	r2, _, err := c.Exchange(m2, server.GetAddr())
+	assert.NoError(t, err)
+	assert.Equal(t, dns.RcodeSuccess, r2.Rcode)
+	assert.Len(t, r2.Answer, 1)
+	assert.Equal(t, "100.64.0.17", r2.Answer[0].(*dns.A).A.String())
+
+	// 测试3: 查询常规域名 foo.bar.svc.node1.remote
+	// 应该匹配通配符 *.*.svc.node1.remote（多级通配符）
+	// 注意：这个测试当前会失败，需要手动修复通配符匹配逻辑
+	m3 := new(dns.Msg)
+	m3.SetQuestion("foo.bar.svc.node1.remote.", dns.TypeA)
+	m3.RecursionDesired = false
+
+	r3, _, err := c.Exchange(m3, server.GetAddr())
+	assert.NoError(t, err)
+	assert.Equal(t, dns.RcodeSuccess, r3.Rcode)
+	assert.Len(t, r3.Answer, 1)
+	assert.Equal(t, "100.64.0.17", r3.Answer[0].(*dns.A).A.String())
+}
