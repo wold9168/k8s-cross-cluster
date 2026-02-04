@@ -17,9 +17,9 @@ func CheckPermissions(clientset kubernetes.Interface, namespace *string) error {
 
 	klog.Infof("Checking permissions in namespace: %s", ns)
 
-	if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
-		return err
-	}
+	// if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
+	// 	return err
+	// }
 
 	if err := k8sclient.CheckServicePermissions(clientset, ctx, ns); err != nil {
 		return err
@@ -44,7 +44,7 @@ func main() {
 	}
 
 	for {
-		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps 和读取 Services
+		// 鉴权检查：验证当前上下文是否支持读取 Services
 		if err := CheckPermissions(clientset, nil); err != nil {
 			klog.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
 			time.Sleep(10 * time.Second)
