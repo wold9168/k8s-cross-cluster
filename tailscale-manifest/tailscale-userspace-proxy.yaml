@@ -19,11 +19,11 @@ spec:
       targetPort: 1055
     - name: caddy-http
       port: 80
-      targetPort: 2015  # Caddy 默认端口（可后续调整）
+      targetPort: 80
     - name: caddy-https
       port: 443
-      targetPort: 2016
-    - name: coredns-subdnsserver
+      targetPort: 443
+    - name: coredns-subdnsserver-tcp
       port: 10053
       targetPort: 10053
       protocol: TCP
@@ -99,13 +99,12 @@ spec:
         - name: caddy
           image: caddy:2.8-alpine
           ports:
-            - containerPort: 2015
-            - containerPort: 2016
+            - containerPort: 80
+            - containerPort: 443
           volumeMounts:
             - name: caddy-config
               mountPath: /etc/caddy/Caddyfile
               subPath: Caddyfile
-          # Caddy 将监听 2015（HTTP）和 2016（HTTPS）
         # ===== CoreDNS Config Manager 容器 =====
         - name: coredns-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/coredns-config-manager:latest
