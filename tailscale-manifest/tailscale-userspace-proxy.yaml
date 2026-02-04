@@ -26,6 +26,11 @@ spec:
     - name: coredns-subdnsserver
       port: 10053
       targetPort: 10053
+      protocol: TCP
+    - name: coredns-subdnsserver-udp
+      port: 10053
+      targetPort: 10053
+      protocol: UDP
   type: ClusterIP  # 仅集群内可访问
 ---
 apiVersion: apps/v1
