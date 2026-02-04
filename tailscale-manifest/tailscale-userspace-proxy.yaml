@@ -26,7 +26,7 @@ spec:
     - name: coredns-subdnsserver
       port: 10053
       targetPort: 10053
-  type: NodePort
+  type: ClusterIP  # 仅集群内可访问
 ---
 apiVersion: apps/v1
 kind: Deployment
