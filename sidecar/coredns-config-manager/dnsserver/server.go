@@ -96,6 +96,22 @@ func (s *DNSServer) GetAllRecords() map[string][]DNSRecord {
 }
 
 // handleDNSRequest 处理DNS请求
+// buildAnswersForQuery builds DNS resource records for a domain and query type
+func buildAnswersForQuery(domain string, qtype uint16, records []DNSRecord) []dns.RR {
+	var answers []dns.RR
+	for _, record := range records {
+		if record.Type == qtype {
+			rr, err := dns.NewRR(fmt.Sprintf("%s %d IN %s %s", domain, record.TTL, dns.TypeToString[record.Type], record.Value))
+			if err != nil {
+				klog.Errorf("Failed to create DNS RR: %v", err)
+				continue
+			}
+			answers = append(answers, rr)
+		}
+	}
+	return answers
+}
+
 func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	msg := new(dns.Msg)
 	msg.SetReply(r)
@@ -111,16 +127,8 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		klog.V(4).Infof("DNS query: %s type %d from %s", domain, qtype, w.RemoteAddr())
 
 		if records, ok := s.records[domain]; ok {
-			for _, record := range records {
-				if record.Type == qtype {
-					rr, err := dns.NewRR(fmt.Sprintf("%s %d IN %s %s", domain, record.TTL, dns.TypeToString[record.Type], record.Value))
-					if err != nil {
-						klog.Errorf("Failed to create DNS RR: %v", err)
-						continue
-					}
-					msg.Answer = append(msg.Answer, rr)
-				}
-			}
+			answers := buildAnswersForQuery(domain, qtype, records)
+			msg.Answer = append(msg.Answer, answers...)
 		}
 	}
 
