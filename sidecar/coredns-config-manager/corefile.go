@@ -49,7 +49,9 @@ func hasUpstreamConfig(block, upstreamServer string) bool {
 // createRemoteDomainBlock creates a server block for *.remote domains that forwards to the specified upstream
 func createRemoteDomainBlock(upstreamServer string) string {
 	block := ManagedSectionStart + "\n"
-	block += "*.remote {\n"
+	block += "remote {\n"
+	block += "    log\n"
+	block += "    errors\n"
 	block += "    forward . " + upstreamServer + "\n"
 	block += "    cache 30\n"
 	block += "}\n"
