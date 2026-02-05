@@ -43,6 +43,7 @@ jobs:
       - name: Build images using Makefile
         run: |
           make sidecar-image-build TAG=${{ steps.tag.outputs.tag }} REPO_NAME=${{ github.repository }}
+          make sidecar-image-build TAG=latest REPO_NAME=${{ github.repository }}
 
       - name: Push images to registry
         run: |
