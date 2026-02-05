@@ -19,13 +19,18 @@ spec:
       targetPort: 1055
     - name: caddy-http
       port: 80
-      targetPort: 2015  # Caddy 默认端口（可后续调整）
+      targetPort: 80
     - name: caddy-https
       port: 443
-      targetPort: 2016
-    - name: coredns-subdnsserver
+      targetPort: 443
+    - name: coredns-subdnsserver-tcp
       port: 10053
       targetPort: 10053
+      protocol: TCP
+    - name: coredns-subdnsserver-udp
+      port: 10053
+      targetPort: 10053
+      protocol: UDP
   type: ClusterIP  # 仅集群内可访问
 ---
 apiVersion: apps/v1
@@ -93,20 +98,28 @@ spec:
         # ===== Caddy 容器 =====
         - name: caddy
           image: caddy:2.8-alpine
+          # 提权以绑定特权端口
+          securityContext:
+            capabilities:
+              add:
+                - CAP_NET_BIND_SERVICE
           ports:
-            - containerPort: 2015
-            - containerPort: 2016
+            - containerPort: 80
+            - containerPort: 443
           volumeMounts:
-            - name: caddy-config
+            - name: shared-caddy-config
               mountPath: /etc/caddy/Caddyfile
               subPath: Caddyfile
-          # Caddy 将监听 2015（HTTP）和 2016（HTTPS）
         # ===== CoreDNS Config Manager 容器 =====
         - name: coredns-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/coredns-config-manager:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 10053
+              name: dns-tcp
+              protocol: TCP
+            - containerPort: 10053
+              name: dns-udp
               protocol: UDP
           volumeMounts:
             - name: tailscale-socket
@@ -115,15 +128,16 @@ spec:
         - name: caddy-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:latest
           imagePullPolicy: Always
+          volumeMounts:
+            - name: shared-caddy-config
+              mountPath: /config
       volumes:
         - name: tailscale-state
           emptyDir: {}
         - name: tailscale-socket
           emptyDir: {}
-        - name: caddy-config
-          configMap:
-            name: caddy-config
-            optional: true
+        - name: shared-caddy-config
+          emptyDir: {}
 
 ---
 # Caddy 的初始配置（空或简单占位）

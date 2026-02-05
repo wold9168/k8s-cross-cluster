@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -17,9 +18,9 @@ func CheckPermissions(clientset kubernetes.Interface, namespace *string) error {
 
 	klog.Infof("Checking permissions in namespace: %s", ns)
 
-	if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
-		return err
-	}
+	// if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
+	// 	return err
+	// }
 
 	if err := k8sclient.CheckServicePermissions(clientset, ctx, ns); err != nil {
 		return err
@@ -44,23 +45,13 @@ func main() {
 	}
 
 	for {
-		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps 和读取 Services
+		// 鉴权检查：验证当前上下文是否支持读取 Services
 		if err := CheckPermissions(clientset, nil); err != nil {
 			klog.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
 			time.Sleep(10 * time.Second)
 			continue
 		}
 
-		// 获取当前命名空间中的所有 ConfigMap
-		configMapList, err := k8sclient.GetAllConfigMapsInCurrentNamespace(clientset, nil)
-		if err != nil {
-			// 如果获取 ConfigMap 失败，记录错误但不 panic，继续执行
-			klog.Errorf("Failed to list ConfigMaps: %v\n", err)
-		} else {
-			for _, cm := range configMapList.Items {
-				klog.Infof("Successfully retrieved ConfigMap: %s\n", cm.Name)
-			}
-		}
 
 		// 获取当前命名空间中的所有 Service
 		serviceList, err := k8sclient.GetAllServicesInCurrentNamespace(clientset, nil)
@@ -81,16 +72,20 @@ func main() {
 			// 根据跨集群访问域名生成对应的 ConfigMap
 			caddyConfig := generator.GenerateCaddyConfig(remoteDomains, domainMapping)
 
-			// 将 ConfigMap 写入到集群中
-			targetNamespace, nsErr := k8sclient.GetCurrentNamespace()
-			if nsErr != nil {
-				klog.Warningf("Could not determine current namespace: %v", nsErr)
-				targetNamespace = "unknown"
-			}
-			klog.Infof("Writing Caddy config to namespace '%s':\n%s", targetNamespace, caddyConfig)
-			err = k8sclient.UpdateCaddyConfigMap(clientset, nil, caddyConfig)
-			if err != nil {
-				klog.Errorf("Failed to update Caddy ConfigMap: %v", err)
+			// 将 ConfigMap 写入到容器的 /config/caddyfile 文件中
+			configDir := "/config"
+			configPath := "/config/caddyfile"
+
+			// 确保目录存在
+			if err := os.MkdirAll(configDir, 0755); err != nil {
+				klog.Errorf("Failed to create config directory '%s': %v", configDir, err)
+			} else {
+				klog.Infof("Writing Caddy config to file '%s':\n%s", configPath, caddyConfig)
+				if err := os.WriteFile(configPath, []byte(caddyConfig), 0644); err != nil {
+					klog.Errorf("Failed to write Caddy config file '%s': %v", configPath, err)
+				} else {
+					klog.Infof("Successfully wrote Caddy config to file '%s'", configPath)
+				}
 			}
 		}
 
