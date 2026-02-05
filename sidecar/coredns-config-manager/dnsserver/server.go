@@ -78,25 +78,6 @@ func (s *DNSServer) GetRecords(name string) []DNSRecord {
 	return nil
 }
 
-// GetAllRecords 获取所有DNS记录，用于调试
-func (s *DNSServer) GetAllRecords() map[string][]DNSRecord {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	result := make(map[string][]DNSRecord)
-	for name, records := range s.records {
-		// 硬拷贝，以免影响 dns 服务器状态
-		result[name] = append([]DNSRecord{}, records...)
-
-		// 日志输出所有记录
-		for _, record := range records {
-			klog.Infof("[DEBUG] DNS Record - Domain: %s, Type: %s (%d), TTL: %d, Value: %s",
-				name, dns.TypeToString[record.Type], record.Type, record.TTL, record.Value)
-		}
-	}
-	return result
-}
-
 // handleDNSRequest 处理DNS请求
 // buildAnswersForQuery builds DNS resource records for a domain and query type
 func buildAnswersForQuery(domain string, qtype uint16, records []DNSRecord) []dns.RR {
@@ -180,11 +161,10 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		domain := question.Name
 		qtype := question.Qtype
 
-		klog.Infof("handleDNSRequest: DNS query: %s type %d from %s", domain, qtype, w.RemoteAddr())
+		klog.V(4).Infof("DNS query: %s type %d from %s", domain, qtype, w.RemoteAddr())
 
 		if records, ok := s.records[domain]; ok {
 			// 精确匹配
-			klog.Infof("handleDNSRequest: DNS exact match")
 			answers := buildAnswersForQuery(domain, qtype, records)
 			msg.Answer = append(msg.Answer, answers...)
 		} else {
@@ -192,14 +172,10 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 			klog.Infof("handleDNSRequest: Trying wildcard matching for %s", domain)
 			matches := findWildcardMatchingRecords(domain, s.records)
 
-			for pattern, records := range matches {
+			for _, records := range matches {
 				answers := buildAnswersForQuery(domain, qtype, records)
 				msg.Answer = append(msg.Answer, answers...)
-				klog.Infof("handleDNSRequest: Added answers from wildcard pattern: %s", pattern)
-			}
-
-			if len(msg.Answer) == 0 {
-				klog.Infof("handleDNSRequest: No wildcard matches found for %s", domain)
+				klog.V(4).Infof("DNS wildcard matched: %s -> records from wildcard pattern", domain)
 			}
 		}
 	}
