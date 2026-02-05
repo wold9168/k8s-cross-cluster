@@ -50,8 +50,6 @@ func hasUpstreamConfig(block, upstreamServer string) bool {
 func createRemoteDomainBlock(upstreamServer string) string {
 	block := ManagedSectionStart + "\n"
 	block += "*.remote {\n"
-	block += "    log\n"
-	block += "    errors\n"
 	block += "    forward . " + upstreamServer + "\n"
 	block += "    cache 30\n"
 	block += "}\n"
@@ -95,7 +93,7 @@ func updateCorefile(content, upstreamServer string) string {
 		newBlock = "\n" + newBlock
 	}
 
-	return contentWithoutManaged + newBlock
+	return newBlock + contentWithoutManaged
 }
 
 // isManagedSectionPresent checks if the managed section already exists in the content
