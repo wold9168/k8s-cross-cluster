@@ -108,8 +108,7 @@ spec:
             - containerPort: 443
           volumeMounts:
             - name: shared-caddy-config
-              mountPath: /etc/caddy/Caddyfile
-              subPath: Caddyfile
+              mountPath: /etc/caddy
         # ===== CoreDNS Config Manager 容器 =====
         - name: coredns-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/coredns-config-manager:latest
