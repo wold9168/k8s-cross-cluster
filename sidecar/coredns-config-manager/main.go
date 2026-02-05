@@ -57,9 +57,19 @@ func main() {
 		}
 		klog.Infof("Current Pod IP: %s", podIP)
 
+		// 获取当前Pod所在服务的ClusterIP
+		currentSvcClusterIp, err := k8sclient.GetCurrentPodServiceClusterIP(clientset)
+		if err != nil {
+			klog.Warningf("Failed to get Service ClusterIP: %v, using empty string", err)
+			currentSvcClusterIp = ""
+		} else {
+			// 硬编码端口号，该端口号对应 coredns-config-manager 子 dns 服务器的端口号
+			currentSvcClusterIp += ":10053"
+		}
+		klog.Infof("Current Service ClusterIP: %s", currentSvcClusterIp)
+
 		// Check and update CoreDNS configuration to forward *.remote queries to our DNS server
-		localhostIP := "127.0.0.1" // Loopback. The DNS SubServer is supported to be deployed in the same pod.
-		if err := ensureCoreDNSConfig(clientset, localhostIP); err != nil {
+		if err := ensureCoreDNSConfig(clientset, currentSvcClusterIp); err != nil {
 			klog.Errorf("Failed to ensure CoreDNS configuration: %v", err)
 		} else {
 			klog.Info("CoreDNS configuration is properly set up")
