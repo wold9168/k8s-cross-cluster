@@ -172,7 +172,7 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 			klog.Infof("handleDNSRequest: Trying wildcard matching for %s", domain)
 			matches := findWildcardMatchingRecords(domain, s.records)
 
-			for pattern, records := range matches {
+			for _, records := range matches {
 				answers := buildAnswersForQuery(domain, qtype, records)
 				msg.Answer = append(msg.Answer, answers...)
 				klog.V(4).Infof("DNS wildcard matched: %s -> records from wildcard pattern", domain)
