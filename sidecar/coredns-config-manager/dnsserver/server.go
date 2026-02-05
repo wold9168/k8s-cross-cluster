@@ -161,11 +161,10 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		domain := question.Name
 		qtype := question.Qtype
 
-		klog.Infof("handleDNSRequest: DNS query: %s type %d from %s", domain, qtype, w.RemoteAddr())
+		klog.V(4).Infof("DNS query: %s type %d from %s", domain, qtype, w.RemoteAddr())
 
 		if records, ok := s.records[domain]; ok {
 			// 精确匹配
-			klog.Infof("handleDNSRequest: DNS exact match")
 			answers := buildAnswersForQuery(domain, qtype, records)
 			msg.Answer = append(msg.Answer, answers...)
 		} else {
@@ -176,11 +175,7 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 			for pattern, records := range matches {
 				answers := buildAnswersForQuery(domain, qtype, records)
 				msg.Answer = append(msg.Answer, answers...)
-				klog.Infof("handleDNSRequest: Added answers from wildcard pattern: %s", pattern)
-			}
-
-			if len(msg.Answer) == 0 {
-				klog.Infof("handleDNSRequest: No wildcard matches found for %s", domain)
+				klog.V(4).Infof("DNS wildcard matched: %s -> records from wildcard pattern", domain)
 			}
 		}
 	}
