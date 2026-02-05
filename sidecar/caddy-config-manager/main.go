@@ -72,9 +72,9 @@ func main() {
 			// 根据跨集群访问域名生成对应的 ConfigMap
 			caddyConfig := generator.GenerateCaddyConfig(remoteDomains, domainMapping)
 
-			// 将 ConfigMap 写入到容器的 /config/caddyfile 文件中
+			// 将 ConfigMap 写入到容器的 /config/Caddyfile 文件中
 			configDir := "/config"
-			configPath := "/config/caddyfile"
+			configPath := "/config/Caddyfile"
 
 			// 确保目录存在
 			if err := os.MkdirAll(configDir, 0755); err != nil {
