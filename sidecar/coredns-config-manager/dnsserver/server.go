@@ -78,25 +78,6 @@ func (s *DNSServer) GetRecords(name string) []DNSRecord {
 	return nil
 }
 
-// GetAllRecords 获取所有DNS记录，用于调试
-func (s *DNSServer) GetAllRecords() map[string][]DNSRecord {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	result := make(map[string][]DNSRecord)
-	for name, records := range s.records {
-		// 硬拷贝，以免影响 dns 服务器状态
-		result[name] = append([]DNSRecord{}, records...)
-
-		// 日志输出所有记录
-		for _, record := range records {
-			klog.Infof("[DEBUG] DNS Record - Domain: %s, Type: %s (%d), TTL: %d, Value: %s",
-				name, dns.TypeToString[record.Type], record.Type, record.TTL, record.Value)
-		}
-	}
-	return result
-}
-
 // handleDNSRequest 处理DNS请求
 // buildAnswersForQuery builds DNS resource records for a domain and query type
 func buildAnswersForQuery(domain string, qtype uint16, records []DNSRecord) []dns.RR {
