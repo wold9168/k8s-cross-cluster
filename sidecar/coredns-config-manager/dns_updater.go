@@ -29,6 +29,8 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 	peers, err := getTailscalePeers()
 	if err != nil {
 		return fmt.Errorf("failed to get Tailscale peers: %w", err)
+	} else {
+		klog.Infof("get Tailscale peers successfully, cnt: %d", len(peers))
 	}
 	for _, peer := range peers {
 
