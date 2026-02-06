@@ -21,7 +21,7 @@ type DNSRecord struct {
 // DNSServer DNS服务器
 type DNSServer struct {
 	server  *dns.Server
-	records map[string][]DNSRecord // key: domain name
+	records map[string][]DNSRecord // 键: 域名
 	mu      sync.RWMutex
 	addr    string
 }
@@ -79,7 +79,7 @@ func (s *DNSServer) GetRecords(name string) []DNSRecord {
 }
 
 // handleDNSRequest 处理DNS请求
-// buildAnswersForQuery builds DNS resource records for a domain and query type
+// buildAnswersForQuery 为域名和查询类型构建DNS资源记录
 func buildAnswersForQuery(domain string, qtype uint16, records []DNSRecord) []dns.RR {
 	var answers []dns.RR
 	for _, record := range records {
