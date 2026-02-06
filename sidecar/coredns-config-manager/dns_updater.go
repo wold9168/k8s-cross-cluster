@@ -43,25 +43,34 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 		recordName := fmt.Sprintf("Extract gateway hostname from PeerInfo: %s -> %s", peer.HostName, nodename)
 
 		// 添加新记录之前删除此域的现有 DNS 记录
-		dnsSrv.RemoveRecords(recordName)
+		err = addOrUpdateDNSRecords(dnsSrv, recordName, nodename, peer.TailscaleIPs)
+		if err != nil {
+			return fmt.Errorf("failed to update DNS records: %w", err)
+		}
+	}
+	return nil
+}
 
-		clusterIps := peer.TailscaleIPs
-		klog.Infof("Cleared existing DNS records for: %s ; Fetch Addresses from PeerInfo. nodename, CurAddr: %s, %v",
-			recordName, nodename, clusterIps)
+// addOrUpdateDNSRecords 为指定的记录名称添加或更新 DNS 记录
+// 根据 IP 地址类型（IPv4/IPv6）添加相应的 A 或 AAAA 记录
+func addOrUpdateDNSRecords(dnsSrv *dnsserver.DNSServer, recordName, nodename string, clusterIps []string) error {
+	dnsSrv.RemoveRecords(recordName)
 
-		for _, clusterIp := range peer.TailscaleIPs {
-			ip := net.ParseIP(clusterIp)
-			if ip.To4() != nil {
-				// 为服务添加 A 记录
-				dnsSrv.AddRecord(recordName, dns.TypeA, 300 /* TTL */, clusterIp)
-				klog.Infof("Added DNS A record: %s -> %s", recordName, clusterIp)
-			} else if ip.To16() != nil {
-				// 为服务添加 AAAA 记录
-				dnsSrv.AddRecord(recordName, dns.TypeAAAA, 300 /* TTL */, clusterIp)
-				klog.Infof("Added DNS AAAA record: %s -> %s", recordName, clusterIp)
-			} else {
-				return fmt.Errorf("Fatal error (coredns-config-manager): Invalid format of Address.")
-			}
+	klog.Infof("Cleared existing DNS records for: %s ; Fetch Addresses from PeerInfo. nodename, CurAddr: %s, %v",
+		recordName, nodename, clusterIps)
+
+	for _, clusterIp := range clusterIps {
+		ip := net.ParseIP(clusterIp)
+		if ip.To4() != nil {
+			// 为服务添加 A 记录
+			dnsSrv.AddRecord(recordName, dns.TypeA, 300 /* TTL */, clusterIp)
+			klog.Infof("Added DNS A record: %s -> %s", recordName, clusterIp)
+		} else if ip.To16() != nil {
+			// 为服务添加 AAAA 记录
+			dnsSrv.AddRecord(recordName, dns.TypeAAAA, 300 /* TTL */, clusterIp)
+			klog.Infof("Added DNS AAAA record: %s -> %s", recordName, clusterIp)
+		} else {
+			return fmt.Errorf("Fatal error (coredns-config-manager): Invalid format of Address.")
 		}
 	}
 	return nil
