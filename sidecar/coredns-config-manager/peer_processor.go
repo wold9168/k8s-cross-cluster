@@ -7,7 +7,7 @@ import (
 	tailscaledclient "github.com/wold9168/k8s-cross-cluster/lib/tailscaled-client"
 )
 
-// PeerInfo holds information about a Tailscale peer
+// PeerInfo 保存关于 Tailscale 对等体的信息
 type PeerInfo struct {
 	ID           string
 	HostName     string
@@ -16,7 +16,7 @@ type PeerInfo struct {
 	Online       bool
 }
 
-// getTailscalePeers retrieves the current node's Tailscale peer nodes
+// getTailscalePeers 获取当前节点的 Tailscale 对等节点
 func getTailscalePeers() ([]PeerInfo, error) {
 	client := tailscaledclient.New()
 	ctx := context.Background()
@@ -28,13 +28,13 @@ func getTailscalePeers() ([]PeerInfo, error) {
 
 	peerInfos := make([]PeerInfo, 0, len(peers))
 	for _, peer := range peers {
-		// Clean up DNS name (remove trailing dot if present)
+		// 清理 DNS 名称（如果存在则删除末尾的点）
 		dnsName := peer.DNSName
 		if len(dnsName) > 0 && dnsName[len(dnsName)-1] == '.' {
 			dnsName = dnsName[:len(dnsName)-1]
 		}
 
-		// Convert Tailscale IPs to strings
+		// 将 Tailscale IP 转换为字符串
 		ipStrings := make([]string, len(peer.TailscaleIPs))
 		for i, ip := range peer.TailscaleIPs {
 			ipStrings[i] = ip.String()

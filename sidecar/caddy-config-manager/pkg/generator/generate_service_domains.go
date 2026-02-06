@@ -5,12 +5,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	// Import the k8sclient package to use standardized ConfigMap operations
+	// 导入 k8sclient 包以使用标准化的 ConfigMap 操作
 	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
 )
 
-// GenerateCrossClusterServiceDomains generates cross-cluster access domains for services
-// Returns a slice of remote domains and a map from remote domain to local domain
+// GenerateCrossClusterServiceDomains 为服务生成跨集群访问域名
+// 返回远程域名切片和从远程域名到本地域名的映射
 func GenerateCrossClusterServiceDomains(clientset kubernetes.Interface, serviceList *v1.ServiceList) ([]string, map[string]string) {
 	remoteDomains := make([]string, 0)
 	domainMapping := make(map[string]string)
@@ -19,7 +19,7 @@ func GenerateCrossClusterServiceDomains(clientset kubernetes.Interface, serviceL
 		return remoteDomains, domainMapping
 	}
 
-	// Read cluster name from ConfigMap
+	// 从 ConfigMap 读取集群名称
 	clusterName := "default-cluster-name" // Default fallback value
 	defaultNs := "default"
 	configMap, err := k8sclient.GetConfigMap(clientset, &defaultNs, "tailscale-cluster-name")
@@ -38,16 +38,16 @@ func GenerateCrossClusterServiceDomains(clientset kubernetes.Interface, serviceL
 		serviceName := service.Name
 		namespace := service.Namespace
 
-		// Generate remote domain format: <service-name>.<namespace>.svc.<cluster-name>.remote
+		// 生成远程域名格式: <service-name>.<namespace>.svc.<cluster-name>.remote
 		remoteDomain := serviceName + "." + namespace + ".svc." + clusterName + ".remote"
 
-		// Generate local domain format: <service-name>.<namespace>.svc.cluster.local
+		// 生成本地域名格式: <service-name>.<namespace>.svc.cluster.local
 		localDomain := serviceName + "." + namespace + ".svc.cluster.local"
 
-		// Add to slice
+		// 添加到切片
 		remoteDomains = append(remoteDomains, remoteDomain)
 
-		// Add to mapping
+		// 添加到映射
 		domainMapping[remoteDomain] = localDomain
 	}
 

@@ -9,7 +9,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// RemoteService represents a service discovered in a remote cluster
+// RemoteService 表示在远程集群中发现的服务
 type RemoteService struct {
 	Name      string
 	Namespace string
@@ -17,32 +17,32 @@ type RemoteService struct {
 	Ports     []ServicePort
 }
 
-// ServicePort represents a port exposed by a service
+// ServicePort 表示服务暴露的端口
 type ServicePort struct {
 	Name     string
 	Port     int32
 	Protocol string
 }
 
-// UpdateDNSRecordsForGateways generates and adds DNS records for the gateways to the DNS server
+// UpdateDNSRecordsForGateways 为网关生成并添加 DNS 记录到 DNS 服务器
 func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 	peers, err := getTailscalePeers()
 	if err != nil {
 		return fmt.Errorf("failed to get Tailscale peers: %w", err)
 	}
-	// Clear existing remote records before adding new ones
-	// This prevents accumulation of stale records
+	// 添加新记录之前清除现有远程记录
+	// 这可以防止陈旧记录的累积
 	for _, peer := range peers {
 
-		// Add DNS records for each discovered service
-		// Format: service.namespace.svc.clustername.remote
+		// 为每个发现的服务添加 DNS 记录
+		// 格式: service.namespace.svc.clustername.remote
 		nodename, err := extractGatewayHostNameFromPeerInfo(peer)
 		if err != nil {
 			return err
 		}
 		recordName := fmt.Sprintf("*.*.svc.%s.remote.", nodename)
 
-		// Remove existing DNS records for this domain before adding new ones
+		// 添加新记录之前删除此域的现有 DNS 记录
 		dnsSrv.RemoveRecords(recordName)
 		klog.Infof("Cleared existing DNS records for: %s", recordName)
 
@@ -52,11 +52,11 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 		for _, clusterIp := range peer.TailscaleIPs {
 			ip := net.ParseIP(clusterIp)
 			if ip.To4() != nil {
-				// Add A record for the service
+				// 为服务添加 A 记录
 				dnsSrv.AddRecord(recordName, dns.TypeA, 300 /* TTL */, clusterIp)
 				klog.Infof("Added DNS A record: %s -> %s", recordName, clusterIp)
 			} else if ip.To16() != nil {
-				// Add AAAA record for the service
+				// 为服务添加 AAAA 记录
 				dnsSrv.AddRecord(recordName, dns.TypeAAAA, 300 /* TTL */, clusterIp)
 				klog.Infof("Added DNS AAAA record: %s -> %s", recordName, clusterIp)
 			} else {
@@ -67,7 +67,7 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 	return nil
 }
 
-// extractGatewayHostNames extracts hostnames of peers that end with "-tsgateway"
+// extractGatewayHostNames 提取以"-tsgateway"结尾的对等体主机名
 func extractGatewayHostNameFromPeerInfo(peer PeerInfo) (string, error) {
 	rawhostname := peer.HostName
 	if len(rawhostname) >= 10 && rawhostname[len(rawhostname)-10:] == "-tsgateway" {

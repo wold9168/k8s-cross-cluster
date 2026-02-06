@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-	// Authentication
 	config, err := k8sclient.GetConfig()
 	if err != nil {
 		klog.Error("Authentication failed due to ", err.Error())
@@ -68,7 +67,7 @@ func main() {
 		}
 		klog.Infof("Current Service ClusterIP: %s", currentSvcClusterIp)
 
-		// Check and update CoreDNS configuration to forward *.remote queries to our DNS server
+		// 检查并更新 CoreDNS 配置以将 *.remote 查询转发到我们的 DNS 服务器
 		if err := ensureCoreDNSConfig(clientset, currentSvcClusterIp); err != nil {
 			klog.Errorf("Failed to ensure CoreDNS configuration: %v", err)
 		} else {
@@ -83,32 +82,32 @@ func main() {
 	}
 }
 
-// ensureCoreDNSConfig checks if the CoreDNS configuration contains our upstream configuration
-// and updates it if necessary
+// ensureCoreDNSConfig 检查 CoreDNS 配置是否包含我们的上游配置
+// 如有必要则进行更新
 func ensureCoreDNSConfig(clientset kubernetes.Interface, upstreamServer string) error {
-	// Get the current CoreDNS ConfigMap
+	// 获取当前 CoreDNS ConfigMap
 	namespace := CoreDNSNamespace
 	coreDNSCM, err := k8sclient.GetConfigMap(clientset, &namespace, CoreDNSConfigMapName)
 	if err != nil {
 		return fmt.Errorf("failed to get CoreDNS ConfigMap: %w", err)
 	}
 
-	// Get the current Corefile content
+	// 获取当前 Corefile 内容
 	currentCorefile, exists := coreDNSCM.Data[CoreDNSConfigKey]
 	if !exists {
 		return fmt.Errorf("Corefile key '%s' does not exist in ConfigMap", CoreDNSConfigKey)
 	}
 
-	// Check if update is needed
+	// 检查是否需要更新
 	if !needsUpdate(currentCorefile, upstreamServer) {
 		klog.V(4).Info("CoreDNS configuration is already up to date")
 		return nil
 	}
 
-	// Update the Corefile content
+	// 更新 Corefile 内容
 	updatedCorefile := updateCorefile(currentCorefile, upstreamServer)
 
-	// Update the ConfigMap with the new Corefile
+	// 使用新的 Corefile 更新 ConfigMap
 	coreDNSCM.Data[CoreDNSConfigKey] = updatedCorefile
 	namespace = CoreDNSNamespace
 	_, err = k8sclient.UpdateExistingConfigMap(clientset, &namespace, coreDNSCM)
