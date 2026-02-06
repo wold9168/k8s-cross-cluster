@@ -77,9 +77,9 @@ func main() {
 		// 获取当前节点的 Tailscale 对端节点，并根据 HostName 生成 *.*.svc.HostName.remote 这样的 DNS 记录，装入我们上面拉起来的 DNS 服务器里
 		UpdateDNSRecordsForGateways(dnsSrv)
 		if err != nil {
-			klog.Info("Records of internal DNS server have been updated.")
-		} else {
 			klog.Infof("Updating records of internal DNS server failed. %w", err)
+		} else {
+			klog.Info("Records of internal DNS server have been updated.")
 		}
 
 		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
@@ -122,8 +122,8 @@ func ensureCoreDNSConfig(clientset kubernetes.Interface, upstreamServer string) 
 
 	ctx := context.Background()
 	for ; err != nil; err = k8sclient.RolloutDeployment(clientset, ctx, CoreDNSNamespace, CoreDNSDeploymentName) {
+		klog.Errorf("failed to rollout CoreDNS: %w; retry will be performed in 10s", err)
 		time.Sleep(10 * time.Second)
-		return fmt.Errorf("failed to rollout CoreDNS: %w", err)
 	}
 
 	klog.Info("Successfully updated CoreDNS configuration to forward *.remote queries to ", upstreamServer)
