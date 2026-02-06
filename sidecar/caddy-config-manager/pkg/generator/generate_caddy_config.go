@@ -24,7 +24,7 @@ func GenerateCaddyConfig(remoteDomains []string, domainMapping map[string]string
 
 		builder.WriteString(remoteDomain)
 		builder.WriteString(" {\n")
-		builder.WriteString("    tls internal")
+		builder.WriteString("    tls internal\n")
 		builder.WriteString("    reverse_proxy ")
 		builder.WriteString(localDomain)
 		builder.WriteString("\n}\n")
