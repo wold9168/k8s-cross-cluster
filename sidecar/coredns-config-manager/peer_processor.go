@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	tailscaledclient "github.com/wold9168/k8s-cross-cluster/lib/tailscaled-client"
+	"k8s.io/klog/v2"
 )
 
 // PeerInfo 保存关于 Tailscale 对等体的信息
@@ -27,6 +28,7 @@ func getTailscalePeers() ([]PeerInfo, error) {
 	}
 
 	peerInfos := make([]PeerInfo, 0, len(peers))
+	klog.Infof("get %d Tailscale peers from tailscaled.sock", len(peers))
 	for _, peer := range peers {
 		// 清理 DNS 名称（如果存在则删除末尾的点）
 		dnsName := peer.DNSName
