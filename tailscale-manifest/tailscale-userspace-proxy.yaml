@@ -11,11 +11,8 @@ spec:
   selector:
     app: tailscale-proxy
   ports:
-    - name: http-proxy
-      port: 1050  # Tailscale HTTP proxy 默认端口
-      targetPort: 1050
-    - name: socks5
-      port: 1055  # Tailscale SOCKS5 默认端口
+    - name: proxy
+      port: 1055
       targetPort: 1055
     - name: caddy-http
       port: 80
@@ -80,7 +77,7 @@ spec:
             - name: TS_USERSPACE
               value: "true"   # 启用用户空间模式
             - name: TS_OUTBOUND_HTTP_PROXY_LISTEN
-              value: "0.0.0.0:1050"
+              value: "0.0.0.0:1055"
             - name: TS_SOCKS5_SERVER
               value: "0.0.0.0:1055"
             - name: TS_ACCEPT_DNS
