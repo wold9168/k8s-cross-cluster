@@ -122,8 +122,8 @@ func ensureCoreDNSConfig(clientset kubernetes.Interface, upstreamServer string) 
 
 	ctx := context.Background()
 	for ; err != nil; err = k8sclient.RolloutDeployment(clientset, ctx, CoreDNSNamespace, CoreDNSDeploymentName) {
+		klog.Errorf("failed to rollout CoreDNS: %w; retry will be performed in 10s", err)
 		time.Sleep(10 * time.Second)
-		return fmt.Errorf("failed to rollout CoreDNS: %w", err)
 	}
 
 	klog.Info("Successfully updated CoreDNS configuration to forward *.remote queries to ", upstreamServer)
