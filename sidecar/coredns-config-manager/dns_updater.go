@@ -30,8 +30,6 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 	if err != nil {
 		return fmt.Errorf("failed to get Tailscale peers: %w", err)
 	}
-	// 添加新记录之前清除现有远程记录
-	// 这可以防止陈旧记录的累积
 	for _, peer := range peers {
 
 		// 为每个发现的服务添加 DNS 记录
