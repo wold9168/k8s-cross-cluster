@@ -65,13 +65,13 @@ func main() {
 			// 硬编码端口号，该端口号对应 coredns-config-manager 子 dns 服务器的端口号
 			currentSvcClusterIp += ":10053"
 		}
-		klog.Infof("Current Service ClusterIP: %s", currentSvcClusterIp)
+		klog.Infof("Current Service ClusterIP (with dns port): %s", currentSvcClusterIp)
 
 		// 检查并更新 CoreDNS 配置以将 *.remote 查询转发到我们的 DNS 服务器
 		if err := ensureCoreDNSConfig(clientset, currentSvcClusterIp); err != nil {
 			klog.Errorf("Failed to ensure CoreDNS configuration: %v", err)
 		} else {
-			klog.Info("CoreDNS configuration is properly set up")
+			klog.Info("CoreDNS configuration is properly updated. Rollout manually is needed.")
 		}
 
 		// 获取当前节点的 Tailscale 对端节点，并根据 HostName 生成 *.*.svc.HostName.remote 这样的 DNS 记录，装入我们上面拉起来的 DNS 服务器里
