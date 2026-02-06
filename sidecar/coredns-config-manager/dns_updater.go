@@ -42,10 +42,10 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 
 		// 添加新记录之前删除此域的现有 DNS 记录
 		dnsSrv.RemoveRecords(recordName)
-		klog.Infof("Cleared existing DNS records for: %s", recordName)
 
 		clusterIps := peer.TailscaleIPs
-		klog.Infof("Fetch Addresses from PeerInfo. nodename, CurAddr: %s, %v", nodename, clusterIps)
+		klog.Infof("Cleared existing DNS records for: %s ; Fetch Addresses from PeerInfo. nodename, CurAddr: %s, %v",
+			recordName, nodename, clusterIps)
 
 		for _, clusterIp := range peer.TailscaleIPs {
 			ip := net.ParseIP(clusterIp)
