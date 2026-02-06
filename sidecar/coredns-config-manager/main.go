@@ -54,7 +54,7 @@ func main() {
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		klog.Infof("Current Pod IP: %s", podIP)
+		klog.Infof("Get Pod IP successfully, current Pod IP: %s", podIP)
 
 		// 获取当前Pod所在服务的ClusterIP
 		currentSvcClusterIp, err := k8sclient.GetCurrentPodServiceClusterIP(clientset)
