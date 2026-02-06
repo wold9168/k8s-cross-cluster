@@ -48,6 +48,20 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 			return fmt.Errorf("failed to update DNS records: %w", err)
 		}
 	}
+	// 本机的信息似乎不会出现在 getTailscalePeers 获取的 Peers 信息中，故单独处理
+	curTsNodePeerInfo, err := getCurrentTailscaleNode()
+	if err != nil {
+		return fmt.Errorf("Fatal error (coredns-config-manager): cannot fetch the Tailscale nodename of localhost: %w", err)
+	}
+	currentTsNodename, err := extractGatewayHostNameFromPeerInfo(curTsNodePeerInfo)
+	if err != nil {
+		return fmt.Errorf("Fatal error (coredns-config-manager): cannot extract the Tailscale nodename of localhost: %w", err)
+	}
+	recordName := fmt.Sprintf("*.*.svc.%s.remote.", currentTsNodename)
+	err = addOrUpdateDNSRecords(dnsSrv, recordName, currentTsNodename, curTsNodePeerInfo.TailscaleIPs)
+	if err != nil {
+		return fmt.Errorf("failed to update DNS records: %w", err)
+	}
 	return nil
 }
 
