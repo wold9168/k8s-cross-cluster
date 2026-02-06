@@ -76,6 +76,7 @@ func main() {
 
 		// 获取当前节点的 Tailscale 对端节点，并根据 HostName 生成 *.*.svc.HostName.remote 这样的 DNS 记录，装入我们上面拉起来的 DNS 服务器里
 		UpdateDNSRecordsForGateways(dnsSrv)
+		klog.Info("Records of internal DNS server have been updated.")
 
 		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
 		time.Sleep(10 * time.Second)
