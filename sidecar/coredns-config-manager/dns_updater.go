@@ -36,9 +36,9 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 		// 格式: service.namespace.svc.clustername.remote
 		nodename, err := extractGatewayHostNameFromPeerInfo(peer)
 		if err != nil {
-			return err
+			continue
 		}
-		recordName := fmt.Sprintf("*.*.svc.%s.remote.", nodename)
+		recordName := fmt.Sprintf("Extract gateway hostname grom PeerInfo: %s -> %s", peer.HostName, nodename)
 
 		// 添加新记录之前删除此域的现有 DNS 记录
 		dnsSrv.RemoveRecords(recordName)
