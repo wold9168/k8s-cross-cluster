@@ -79,6 +79,11 @@ func addOrUpdateDNSRecords(dnsSrv *dnsserver.DNSServer, recordName, nodename str
 // extractGatewayHostNameFromPeerInfo 从 PeerInfo 中提取以"-tsgateway"结尾的 Peer 主机名
 func extractGatewayHostNameFromPeerInfo(peer PeerInfo) (string, error) {
 	rawhostname := peer.HostName
+	return extractGatewayHostName(rawhostname)
+}
+
+// extractGatewayHostName 从以"-tsgateway"结尾的 Peer 主机名中抽取节点名
+func extractGatewayHostName(rawhostname string) (string, error) {
 	if len(rawhostname) >= 10 && rawhostname[len(rawhostname)-10:] == "-tsgateway" {
 		return rawhostname[:len(rawhostname)-10], nil
 	} else {
