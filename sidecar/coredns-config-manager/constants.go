@@ -4,6 +4,9 @@ const (
 	// CoreDNSConfigMapName 是 CoreDNS ConfigMap 的名称
 	CoreDNSConfigMapName = "coredns"
 
+	// CoreDNSDeploymentName 是 CoreDNS Deployment 的名称
+	CoreDNSDeploymentName = "coredns"
+
 	// CoreDNSConfigKey 是 ConfigMap 中包含 Corefile 的键
 	CoreDNSConfigKey = "Corefile"
 
