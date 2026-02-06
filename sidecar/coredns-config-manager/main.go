@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-	// Authentication
 	config, err := k8sclient.GetConfig()
 	if err != nil {
 		klog.Error("Authentication failed due to ", err.Error())
@@ -55,7 +54,7 @@ func main() {
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		klog.Infof("Current Pod IP: %s", podIP)
+		klog.Infof("Get Pod IP successfully, current Pod IP: %s", podIP)
 
 		// 获取当前Pod所在服务的ClusterIP
 		currentSvcClusterIp, err := k8sclient.GetCurrentPodServiceClusterIP(clientset)
@@ -66,54 +65,65 @@ func main() {
 			// 硬编码端口号，该端口号对应 coredns-config-manager 子 dns 服务器的端口号
 			currentSvcClusterIp += ":10053"
 		}
-		klog.Infof("Current Service ClusterIP: %s", currentSvcClusterIp)
+		klog.Infof("Current Service ClusterIP (with dns port): %s", currentSvcClusterIp)
 
-		// Check and update CoreDNS configuration to forward *.remote queries to our DNS server
+		// 检查并更新 CoreDNS 配置以将 *.remote 查询转发到我们的 DNS 服务器
 		if err := ensureCoreDNSConfig(clientset, currentSvcClusterIp); err != nil {
 			klog.Errorf("Failed to ensure CoreDNS configuration: %v", err)
 		} else {
-			klog.Info("CoreDNS configuration is properly set up")
+			klog.Info("CoreDNS configuration is properly updated. Rollout manually is needed.")
 		}
 
 		// 获取当前节点的 Tailscale 对端节点，并根据 HostName 生成 *.*.svc.HostName.remote 这样的 DNS 记录，装入我们上面拉起来的 DNS 服务器里
 		UpdateDNSRecordsForGateways(dnsSrv)
+		if err != nil {
+			klog.Infof("Updating records of internal DNS server failed. %w", err)
+		} else {
+			klog.Info("Records of internal DNS server have been updated.")
+		}
 
 		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
 		time.Sleep(10 * time.Second)
 	}
 }
 
-// ensureCoreDNSConfig checks if the CoreDNS configuration contains our upstream configuration
-// and updates it if necessary
+// ensureCoreDNSConfig 检查 CoreDNS 配置是否包含我们的上游配置
+// 如有必要则进行更新
 func ensureCoreDNSConfig(clientset kubernetes.Interface, upstreamServer string) error {
-	// Get the current CoreDNS ConfigMap
+	// 获取当前 CoreDNS ConfigMap
 	namespace := CoreDNSNamespace
 	coreDNSCM, err := k8sclient.GetConfigMap(clientset, &namespace, CoreDNSConfigMapName)
 	if err != nil {
 		return fmt.Errorf("failed to get CoreDNS ConfigMap: %w", err)
 	}
 
-	// Get the current Corefile content
+	// 获取当前 Corefile 内容
 	currentCorefile, exists := coreDNSCM.Data[CoreDNSConfigKey]
 	if !exists {
 		return fmt.Errorf("Corefile key '%s' does not exist in ConfigMap", CoreDNSConfigKey)
 	}
 
-	// Check if update is needed
+	// 检查是否需要更新
 	if !needsUpdate(currentCorefile, upstreamServer) {
 		klog.V(4).Info("CoreDNS configuration is already up to date")
 		return nil
 	}
 
-	// Update the Corefile content
+	// 更新 Corefile 内容
 	updatedCorefile := updateCorefile(currentCorefile, upstreamServer)
 
-	// Update the ConfigMap with the new Corefile
+	// 使用新的 Corefile 更新 ConfigMap
 	coreDNSCM.Data[CoreDNSConfigKey] = updatedCorefile
 	namespace = CoreDNSNamespace
 	_, err = k8sclient.UpdateExistingConfigMap(clientset, &namespace, coreDNSCM)
 	if err != nil {
 		return fmt.Errorf("failed to update CoreDNS ConfigMap: %w", err)
+	}
+
+	ctx := context.Background()
+	for ; err != nil; err = k8sclient.RolloutDeployment(clientset, ctx, CoreDNSNamespace, CoreDNSDeploymentName) {
+		klog.Errorf("failed to rollout CoreDNS: %w; retry will be performed in 10s", err)
+		time.Sleep(10 * time.Second)
 	}
 
 	klog.Info("Successfully updated CoreDNS configuration to forward *.remote queries to ", upstreamServer)

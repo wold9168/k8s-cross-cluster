@@ -7,14 +7,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// parseCorefile parses the Corefile content and returns a slice of server blocks
+// parseCorefile 解析 Corefile 内容并返回服务器块切片
 func parseCorefile(content string) []string {
-	// Split the content by } to separate server blocks
-	// This is a simplified parsing approach - in a production environment,
-	// you might want to use a more sophisticated parser
+	// 按花括号（}）分割内容以分离服务器块
 	blocks := []string{}
 
-	// Find all server blocks (blocks that start with a domain and end with })
+	// 查找所有服务器块（以域名开头并以 } 结尾的块）
 	re := regexp.MustCompile(`(?s)([^{}]*\{.*?\})`)
 	matches := re.FindAllString(content, -1)
 
@@ -25,14 +23,14 @@ func parseCorefile(content string) []string {
 	return blocks
 }
 
-// findServerBlock finds a server block that matches the given domain pattern
+// findServerBlock 查找与给定域名模式匹配的服务器块
 func findServerBlock(blocks []string, domainPattern string) (string, int) {
 	for i, block := range blocks {
-		// Check if the block starts with the domain pattern
+		// 检查块是否以域名模式开头
 		lines := strings.Split(block, "\n")
 		if len(lines) > 0 {
 			firstLine := strings.TrimSpace(lines[0])
-			// The first line should contain the domain
+			// 第一行应包含域名
 			if strings.Contains(firstLine, domainPattern) {
 				return block, i
 			}
@@ -41,12 +39,12 @@ func findServerBlock(blocks []string, domainPattern string) (string, int) {
 	return "", -1
 }
 
-// hasUpstreamConfig checks if a server block already has an upstream configuration
+// hasUpstreamConfig 检查服务器块是否已具有上游配置
 func hasUpstreamConfig(block, upstreamServer string) bool {
 	return strings.Contains(block, "forward") && strings.Contains(block, upstreamServer)
 }
 
-// createRemoteDomainBlock creates a server block for *.remote domains that forwards to the specified upstream
+// createRemoteDomainBlock 为 *.remote 域创建一个转发到指定上游的服务器块
 func createRemoteDomainBlock(upstreamServer string) string {
 	block := ManagedSectionStart + "\n"
 	block += "remote:53 {\n"
@@ -59,37 +57,37 @@ func createRemoteDomainBlock(upstreamServer string) string {
 	return block
 }
 
-// removeManagedSection removes any existing managed section from the Corefile content
+// removeManagedSection 从 Corefile 内容中移除任何现有的托管部分
 func removeManagedSection(content string) string {
 	startIdx := strings.Index(content, ManagedSectionStart)
 	if startIdx == -1 {
-		return content // No managed section found
+		return content // 未找到托管部分
 	}
 
 	endIdx := strings.Index(content, ManagedSectionEnd)
 	if endIdx == -1 {
-		return content // Malformed managed section, return as is
+		return content // 格式错误的托管部分，按原样返回
 	}
 
-	// Include the newline after the end marker for proper formatting
+	// 为正确格式化包含结束标记后的换行符
 	endIdx += len(ManagedSectionEnd)
 	if endIdx < len(content) && content[endIdx] == '\n' {
 		endIdx++
 	}
 
-	// Return content before the start and after the end
+	// 返回开始前和结束后的部分
 	return content[:startIdx] + content[endIdx:]
 }
 
-// updateCorefile adds or updates the configuration for *.remote domains to forward to the specified upstream server
+// updateCorefile 添加或更新 *.remote 域的配置以转发到指定的上游服务器
 func updateCorefile(content, upstreamServer string) string {
-	// First, remove any existing managed section
+	// 首先，移除任何现有的托管部分
 	contentWithoutManaged := removeManagedSection(content)
 
-	// Add the new managed section at the end
+	// 在末尾添加新的托管部分
 	newBlock := createRemoteDomainBlock(upstreamServer)
 
-	// Ensure there's a newline between the existing content and the new block
+	// 确保现有内容和新块之间有一个换行符
 	if !strings.HasSuffix(strings.TrimSpace(contentWithoutManaged), "{") &&
 		!strings.HasPrefix(newBlock, "\n") {
 		newBlock = "\n" + newBlock
@@ -98,12 +96,12 @@ func updateCorefile(content, upstreamServer string) string {
 	return newBlock + contentWithoutManaged
 }
 
-// isManagedSectionPresent checks if the managed section already exists in the content
+// isManagedSectionPresent 检查托管部分是否已存在于内容中
 func isManagedSectionPresent(content string) bool {
 	return strings.Contains(content, ManagedSectionStart) && strings.Contains(content, ManagedSectionEnd)
 }
 
-// isUpstreamCorrect checks if the upstream server in the managed section matches the expected server
+// isUpstreamCorrect 检查托管部分中的上游服务器是否与预期服务器匹配
 func isUpstreamCorrect(content, expectedUpstream string) bool {
 	if !isManagedSectionPresent(content) {
 		return false
@@ -120,23 +118,23 @@ func isUpstreamCorrect(content, expectedUpstream string) bool {
 	return strings.Contains(managedSection, "forward . "+expectedUpstream)
 }
 
-// checkCoreDNSConfig checks if the CoreDNS configuration already contains our upstream configuration
+// checkCoreDNSConfig 检查 CoreDNS 配置是否已包含我们的上游配置
 func checkCoreDNSConfig(content, upstreamServer string) bool {
-	// Parse the Corefile content
+	// 解析 Corefile 内容
 	blocks := parseCorefile(content)
 
-	// Look for a server block that handles *.remote domains
+	// 查找处理 *.remote 域的服务器块
 	remoteBlock, idx := findServerBlock(blocks, "*.remote")
 	if idx == -1 {
-		// No server block for *.remote found, so configuration is missing
+		// 未找到 *.remote 的服务器块，因此配置缺失
 		return false
 	}
 
-	// Check if this block has the correct upstream configuration
+	// 检查此块是否具有正确的上游配置
 	return hasUpstreamConfig(remoteBlock, upstreamServer)
 }
 
-// needsUpdate determines if the Corefile needs to be updated
+// needsUpdate 确定 Corefile 是否需要更新
 func needsUpdate(content, upstreamServer string) bool {
 	isManagedSectionPresentStatus := isManagedSectionPresent(content)
 	isUpstreamCorrectStatus := isUpstreamCorrect(content, upstreamServer)

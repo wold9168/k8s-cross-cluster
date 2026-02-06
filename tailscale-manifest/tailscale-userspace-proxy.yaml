@@ -80,9 +80,9 @@ spec:
             - name: TS_USERSPACE
               value: "true"   # 启用用户空间模式
             - name: TS_OUTBOUND_HTTP_PROXY_LISTEN
-              value: ":1050"  # HTTP 代理监听端口
+              value: "0.0.0.0:1050"
             - name: TS_SOCKS5_SERVER
-              value: ":1055"  # SOCKS5 代理监听端口
+              value: "0.0.0.0:1055"
             - name: TS_ACCEPT_DNS
               value: "true"   # 可选：启用 MagicDNS
           volumeMounts:

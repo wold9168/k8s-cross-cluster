@@ -6,8 +6,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// GenerateCaddyConfig generates Caddy configuration from remote domains and their mappings
-// The configuration format:
+// GenerateCaddyConfig 从远程域名及其映射生成 Caddy 配置
+// 配置格式:
 // <remote-domain> {
 //     reverse_proxy <local-domain>
 // }
