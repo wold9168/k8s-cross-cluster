@@ -40,36 +40,64 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 		if err != nil {
 			continue
 		}
-		recordName := fmt.Sprintf("Extract gateway hostname from PeerInfo: %s -> %s", peer.HostName, nodename)
+		recordName := fmt.Sprintf("*.*.svc.%s.remote.", nodename)
 
 		// 添加新记录之前删除此域的现有 DNS 记录
-		dnsSrv.RemoveRecords(recordName)
+		err = addOrUpdateDNSRecords(dnsSrv, recordName, nodename, peer.TailscaleIPs)
+		if err != nil {
+			return fmt.Errorf("failed to update DNS records: %w", err)
+		}
+	}
+	// 本机的信息似乎不会出现在 getTailscalePeers 获取的 Peers 信息中，故单独处理
+	curTsNodePeerInfo, err := getCurrentTailscaleNode()
+	if err != nil {
+		return fmt.Errorf("Fatal error (coredns-config-manager): cannot fetch the Tailscale nodename of localhost: %w", err)
+	}
+	currentTsNodename, err := extractGatewayHostNameFromPeerInfo(curTsNodePeerInfo)
+	if err != nil {
+		return fmt.Errorf("Fatal error (coredns-config-manager): cannot extract the Tailscale nodename of localhost: %w", err)
+	}
+	recordName := fmt.Sprintf("*.*.svc.%s.remote.", currentTsNodename)
+	err = addOrUpdateDNSRecords(dnsSrv, recordName, currentTsNodename, curTsNodePeerInfo.TailscaleIPs)
+	if err != nil {
+		return fmt.Errorf("failed to update DNS records: %w", err)
+	}
+	return nil
+}
 
-		clusterIps := peer.TailscaleIPs
-		klog.Infof("Cleared existing DNS records for: %s ; Fetch Addresses from PeerInfo. nodename, CurAddr: %s, %v",
-			recordName, nodename, clusterIps)
+// addOrUpdateDNSRecords 为指定的记录名称添加或更新 DNS 记录
+// 根据 IP 地址类型（IPv4/IPv6）添加相应的 A 或 AAAA 记录
+func addOrUpdateDNSRecords(dnsSrv *dnsserver.DNSServer, recordName, nodename string, clusterIps []string) error {
+	dnsSrv.RemoveRecords(recordName)
 
-		for _, clusterIp := range peer.TailscaleIPs {
-			ip := net.ParseIP(clusterIp)
-			if ip.To4() != nil {
-				// 为服务添加 A 记录
-				dnsSrv.AddRecord(recordName, dns.TypeA, 300 /* TTL */, clusterIp)
-				klog.Infof("Added DNS A record: %s -> %s", recordName, clusterIp)
-			} else if ip.To16() != nil {
-				// 为服务添加 AAAA 记录
-				dnsSrv.AddRecord(recordName, dns.TypeAAAA, 300 /* TTL */, clusterIp)
-				klog.Infof("Added DNS AAAA record: %s -> %s", recordName, clusterIp)
-			} else {
-				return fmt.Errorf("Fatal error (coredns-config-manager): Invalid format of Address.")
-			}
+	klog.Infof("Cleared existing DNS records for: %s ; Fetch Addresses from PeerInfo. nodename, CurAddr: %s, %v",
+		recordName, nodename, clusterIps)
+
+	for _, clusterIp := range clusterIps {
+		ip := net.ParseIP(clusterIp)
+		if ip.To4() != nil {
+			// 为服务添加 A 记录
+			dnsSrv.AddRecord(recordName, dns.TypeA, 300 /* TTL */, clusterIp)
+			klog.Infof("Added DNS A record: %s -> %s", recordName, clusterIp)
+		} else if ip.To16() != nil {
+			// 为服务添加 AAAA 记录
+			dnsSrv.AddRecord(recordName, dns.TypeAAAA, 300 /* TTL */, clusterIp)
+			klog.Infof("Added DNS AAAA record: %s -> %s", recordName, clusterIp)
+		} else {
+			return fmt.Errorf("Fatal error (coredns-config-manager): Invalid format of Address.")
 		}
 	}
 	return nil
 }
 
-// extractGatewayHostNames 提取以"-tsgateway"结尾的对等体主机名
+// extractGatewayHostNameFromPeerInfo 从 PeerInfo 中提取以"-tsgateway"结尾的 Peer 主机名
 func extractGatewayHostNameFromPeerInfo(peer PeerInfo) (string, error) {
 	rawhostname := peer.HostName
+	return extractGatewayHostName(rawhostname)
+}
+
+// extractGatewayHostName 从以"-tsgateway"结尾的 Peer 主机名中抽取节点名
+func extractGatewayHostName(rawhostname string) (string, error) {
 	if len(rawhostname) >= 10 && rawhostname[len(rawhostname)-10:] == "-tsgateway" {
 		return rawhostname[:len(rawhostname)-10], nil
 	} else {
