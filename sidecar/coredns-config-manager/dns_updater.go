@@ -38,7 +38,7 @@ func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
 		if err != nil {
 			continue
 		}
-		recordName := fmt.Sprintf("Extract gateway hostname grom PeerInfo: %s -> %s", peer.HostName, nodename)
+		recordName := fmt.Sprintf("Extract gateway hostname from PeerInfo: %s -> %s", peer.HostName, nodename)
 
 		// 添加新记录之前删除此域的现有 DNS 记录
 		dnsSrv.RemoveRecords(recordName)
