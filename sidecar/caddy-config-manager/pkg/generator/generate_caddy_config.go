@@ -9,6 +9,7 @@ import (
 // GenerateCaddyConfig 从远程域名及其映射生成 Caddy 配置
 // 配置格式:
 // <remote-domain> {
+//     tls internal
 //     reverse_proxy <local-domain>
 // }
 func GenerateCaddyConfig(remoteDomains []string, domainMapping map[string]string) string {
@@ -23,6 +24,7 @@ func GenerateCaddyConfig(remoteDomains []string, domainMapping map[string]string
 
 		builder.WriteString(remoteDomain)
 		builder.WriteString(" {\n")
+		builder.WriteString("    tls internal\n")
 		builder.WriteString("    reverse_proxy ")
 		builder.WriteString(localDomain)
 		builder.WriteString("\n}\n")
