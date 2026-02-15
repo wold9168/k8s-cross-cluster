@@ -31,18 +31,20 @@ func main() {
 		panic(err.Error())
 	}
 	defer dnsSrv.Stop()
+
 	ctx := context.TODO()
+
 	for {
 		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps 和读取 Pods
 		if ns, err := k8sclient.GetCurrentNamespace(); err != nil {
 			klog.Error("Failed to get the current namespace: ", err)
 		} else if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
 			klog.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
-			time.Sleep(10 * time.Second)
+			time.Sleep(syncInterval)
 			continue
 		} else if err := k8sclient.CheckPodPermissions(clientset, ctx, ns); err != nil {
 			klog.Errorf("Pod permission check failed: %v, retrying in 10 seconds...", err)
-			time.Sleep(10 * time.Second)
+			time.Sleep(syncInterval)
 			continue
 		}
 		klog.Info("Authorization check passed.")
@@ -51,7 +53,7 @@ func main() {
 		podIP, err := k8sclient.GetCurrentPodIP(clientset)
 		if err != nil {
 			klog.Errorf("Failed to get Pod IP: %v, retrying in 10 seconds...", err)
-			time.Sleep(10 * time.Second)
+			time.Sleep(syncInterval)
 			continue
 		}
 		klog.Infof("Get Pod IP successfully, current Pod IP: %s", podIP)
@@ -82,8 +84,8 @@ func main() {
 			klog.Info("Records of internal DNS server have been updated.")
 		}
 
-		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
-		time.Sleep(10 * time.Second)
+		// 每次循环后暂停 syncInterval 秒，避免对 API Server 造成过大压力
+		time.Sleep(syncInterval)
 	}
 }
 
