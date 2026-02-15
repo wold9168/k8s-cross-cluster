@@ -31,7 +31,7 @@ func main() {
 		panic(err.Error())
 	}
 	defer dnsSrv.Stop()
-	ctx := context.Background()
+	ctx := context.TODO()
 	for {
 		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps 和读取 Pods
 		if ns, err := k8sclient.GetCurrentNamespace(); err != nil {
@@ -120,7 +120,7 @@ func ensureCoreDNSConfig(clientset kubernetes.Interface, upstreamServer string) 
 		return fmt.Errorf("failed to update CoreDNS ConfigMap: %w", err)
 	}
 
-	ctx := context.Background()
+	ctx := context.TODO()
 	for ; err != nil; err = k8sclient.RolloutDeployment(clientset, ctx, CoreDNSNamespace, CoreDNSDeploymentName) {
 		klog.Errorf("failed to rollout CoreDNS: %w; retry will be performed in 10s", err)
 		time.Sleep(10 * time.Second)

@@ -21,7 +21,7 @@ type PeerInfo struct {
 // getTailscalePeers 获取当前节点的 Tailscale 对等节点
 func getTailscalePeers() ([]PeerInfo, error) {
 	client := tailscaledclient.New()
-	ctx := context.Background()
+	ctx := context.TODO()
 
 	peers, err := client.Peers(ctx)
 	if err != nil {
@@ -69,7 +69,7 @@ func convertPeerToPeerInfo(peer *ipnstate.PeerStatus) (PeerInfo, error) {
 // getCurrentTailscaleNode 获取当前节点的 Tailscale 节点
 func getCurrentTailscaleNode() (PeerInfo, error) {
 	client := tailscaledclient.New()
-	ctx := context.Background()
+	ctx := context.TODO()
 
 	self, err := client.Self(ctx)
 	if err != nil {
