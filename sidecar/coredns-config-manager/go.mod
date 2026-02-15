@@ -9,6 +9,7 @@ require (
 	github.com/wold9168/k8s-cross-cluster/lib/tailscaled-client v0.0.0-00010101000000-000000000000
 	k8s.io/client-go v0.34.3
 	k8s.io/klog/v2 v2.130.1
+	tailscale.com v1.90.9
 )
 
 require (
@@ -72,7 +73,6 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-	tailscale.com v1.90.9 // indirect
 )
 
 replace (
