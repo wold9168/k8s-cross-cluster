@@ -18,8 +18,8 @@ func main() {
 		klog.Error("Authentication failed due to ", err.Error())
 		panic(err.Error())
 	}
-	// 使用上述配置创建一个 Kubernetes 客户端集（clientset），可用于访问所有 Kubernetes API 组
-	clientset, err := kubernetes.NewForConfig(config)
+	// 使用上述配置创建一个 Kubernetes 客户端集（pt2clientset），可用于访问所有 Kubernetes API 组
+	pt2clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		klog.Error("Creating clientset failed due to ", err.Error())
 		panic(err.Error())
@@ -35,22 +35,14 @@ func main() {
 	ctx := context.TODO()
 
 	for {
-		// 鉴权检查：验证当前上下文是否支持读写 ConfigMaps 和读取 Pods
-		if ns, err := k8sclient.GetCurrentNamespace(); err != nil {
-			klog.Error("Failed to get the current namespace: ", err)
-		} else if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
-			klog.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
-			time.Sleep(syncInterval)
-			continue
-		} else if err := k8sclient.CheckPodPermissions(clientset, ctx, ns); err != nil {
-			klog.Errorf("Pod permission check failed: %v, retrying in 10 seconds...", err)
+		err := authorization(pt2clientset, ctx)
+		if err != nil {
+			klog.Errorf("Authorization failed due to: %v", err)
 			time.Sleep(syncInterval)
 			continue
 		}
-		klog.Info("Authorization check passed.")
-
 		// 获取当前Pod的IP地址
-		podIP, err := k8sclient.GetCurrentPodIP(clientset)
+		podIP, err := k8sclient.GetCurrentPodIP(pt2clientset)
 		if err != nil {
 			klog.Errorf("Failed to get Pod IP: %v, retrying in 10 seconds...", err)
 			time.Sleep(syncInterval)
@@ -59,7 +51,7 @@ func main() {
 		klog.Infof("Get Pod IP successfully, current Pod IP: %s", podIP)
 
 		// 获取当前Pod所在服务的ClusterIP
-		currentSvcClusterIp, err := k8sclient.GetCurrentPodServiceClusterIP(clientset)
+		currentSvcClusterIp, err := k8sclient.GetCurrentPodServiceClusterIP(pt2clientset)
 		if err != nil {
 			klog.Warningf("Failed to get Service ClusterIP: %v, using empty string", err)
 			currentSvcClusterIp = ""
@@ -70,7 +62,7 @@ func main() {
 		klog.Infof("Current Service ClusterIP (with dns port): %s", currentSvcClusterIp)
 
 		// 检查并更新 CoreDNS 配置以将 *.remote 查询转发到我们的 DNS 服务器
-		if err := ensureCoreDNSConfig(clientset, currentSvcClusterIp); err != nil {
+		if err := ensureCoreDNSConfig(pt2clientset, currentSvcClusterIp); err != nil {
 			klog.Errorf("Failed to ensure CoreDNS configuration: %v", err)
 		} else {
 			klog.Info("CoreDNS configuration is properly updated.")
@@ -87,6 +79,18 @@ func main() {
 		// 每次循环后暂停 syncInterval 秒，避免对 API Server 造成过大压力
 		time.Sleep(syncInterval)
 	}
+}
+
+// authorization 验证当前上下文是否支持读写 ConfigMaps 和读取 Pods
+func authorization(clientset *kubernetes.Clientset, ctx context.Context) error {
+	if ns, err := k8sclient.GetCurrentNamespace(); err != nil {
+		return fmt.Errorf("Failed to get the current namespace: %s", err)
+	} else if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
+		return fmt.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
+	} else if err := k8sclient.CheckPodPermissions(clientset, ctx, ns); err != nil {
+		return fmt.Errorf("Pod permission check failed: %v, retrying in 10 seconds...", err)
+	}
+	return nil
 }
 
 // ensureCoreDNSConfig 检查 CoreDNS 配置是否包含我们的上游配置
