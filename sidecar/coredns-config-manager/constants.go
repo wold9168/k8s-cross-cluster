@@ -23,4 +23,13 @@ const (
 
 	// syncInterval 是主业务循环进行同步的时间间隔，单位为秒
 	syncInterval = 10 * time.Second
+
+	//  subdnsPort 是子 DNS 服务器监听的端口
+	subdnsPort = ":10053"
+
+	// subdnsIp 是子 DNS 服务器监听的IP
+	subdnsIp = "0.0.0.0"
+
+	// subdnsAddr 是子 DNS 服务器监听的地址（带端口）
+	subdnsAddr = subdnsIp+subdnsPort
 )

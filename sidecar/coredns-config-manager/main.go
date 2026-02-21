@@ -25,7 +25,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	dnsSrv := dnsserver.NewDNSServer("0.0.0.0:10053")
+	dnsSrv := dnsserver.NewDNSServer(subdnsAddr)
 	if err := dnsSrv.Start(); err != nil {
 		klog.Error("DNS server start failed: ", err.Error())
 		panic(err.Error())
@@ -57,7 +57,7 @@ func main() {
 			currentSvcClusterIp = ""
 		} else {
 			// 硬编码端口号，该端口号对应 coredns-config-manager 子 dns 服务器的端口号
-			currentSvcClusterIp += ":10053"
+			currentSvcClusterIp += subdnsPort
 		}
 		klog.Infof("Current Service ClusterIP (with dns port): %s", currentSvcClusterIp)
 
