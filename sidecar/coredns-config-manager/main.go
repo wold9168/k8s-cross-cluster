@@ -53,13 +53,13 @@ func main() {
 		// 获取当前Pod所在服务的ClusterIP
 		currentSvcClusterIp, err := k8sclient.GetCurrentPodServiceClusterIP(pt2clientset)
 		if err != nil {
-			klog.Warningf("Failed to get Service ClusterIP: %v, using empty string", err)
 			currentSvcClusterIp = ""
+			klog.Warningf("Failed to get Service ClusterIP: %v, using empty string", err)
 		} else {
 			// 硬编码端口号，该端口号对应 coredns-config-manager 子 dns 服务器的端口号
 			currentSvcClusterIp += subdnsPort
+			klog.Infof("Current Service ClusterIP (with dns port): %s", currentSvcClusterIp)
 		}
-		klog.Infof("Current Service ClusterIP (with dns port): %s", currentSvcClusterIp)
 
 		// 检查并更新 CoreDNS 配置以将 *.remote 查询转发到我们的 DNS 服务器
 		if err := ensureCoreDNSConfig(pt2clientset, currentSvcClusterIp); err != nil {
