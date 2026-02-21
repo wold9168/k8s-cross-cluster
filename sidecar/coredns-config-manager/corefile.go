@@ -87,12 +87,6 @@ func updateCorefile(content, upstreamServer string) string {
 	// 生成新的托管部分
 	newBlock := createRemoteDomainBlock(upstreamServer)
 
-	// 确保现有内容和新块之间有一个换行符
-	if !strings.HasSuffix(strings.TrimSpace(contentWithoutManaged), "{") &&
-		!strings.HasPrefix(newBlock, "\n") {
-		newBlock = "\n" + newBlock
-	}
-
 	return newBlock + contentWithoutManaged
 }
 
