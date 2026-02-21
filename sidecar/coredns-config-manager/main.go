@@ -95,7 +95,7 @@ func authorization(clientset *kubernetes.Clientset, ctx context.Context) error {
 
 // ensureCoreDNSConfig 检查 CoreDNS 配置是否包含我们的上游配置
 // 如有必要则进行更新
-func ensureCoreDNSConfig(clientset kubernetes.Interface, upstreamServer string) error {
+func ensureCoreDNSConfig(clientset *kubernetes.Clientset, upstreamServer string) error {
 	// 获取当前 CoreDNS ConfigMap
 	namespace := CoreDNSNamespace
 	coreDNSCM, err := k8sclient.GetConfigMap(clientset, &namespace, CoreDNSConfigMapName)
