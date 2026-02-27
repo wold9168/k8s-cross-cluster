@@ -32,4 +32,14 @@ const (
 
 	// subdnsAddr 是子 DNS 服务器监听的地址（带端口）
 	subdnsAddr = subdnsIp+subdnsPort
+
+
+	// metricsPort 是metrics服务器监听的端口
+	metricsPort = ":8080"
+
+	// metricsIp 是metrics服务器监听的IP地址
+	metricsIp = "0.0.0.0"
+
+	// metricsAddr 是metrics服务器监听的完整地址（IP:端口）
+	metricsAddr = metricsIp+metricsPort
 )

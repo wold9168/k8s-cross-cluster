@@ -10,9 +10,13 @@ import (
 
 	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
 	dnsserver "github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/dnsserver"
+	"github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/metrics"
 )
 
 func main() {
+	// 初始化 metrics 管理器
+	metricsManager := metrics.Init()
+
 	config, err := k8sclient.GetConfig()
 	if err != nil {
 		klog.Error("Authentication failed due to ", err.Error())
@@ -31,6 +35,14 @@ func main() {
 		panic(err.Error())
 	}
 	defer dnsSrv.Stop()
+
+	// 启动 metrics HTTP 服务器
+	metricsAddr := "0.0.0.0:8080"
+	go func() {
+		if err := metricsManager.Start(metricsAddr); err != nil {
+			klog.Errorf("Metrics server failed: %v", err)
+		}
+	}()
 
 	ctx := context.TODO()
 
@@ -74,6 +86,10 @@ func main() {
 			klog.ErrorS(err, "Updating records of internal DNS server failed.")
 		} else {
 			klog.Info("Records of internal DNS server have been updated.")
+			// 更新 DNS 记录数指标
+			recordCount := dnsSrv.GetRecordCount()
+			metricsManager.UpdateDNSRecordCount(recordCount)
+			klog.Infof("Updated metrics: DNS record count = %d", recordCount)
 		}
 
 		// 每次循环后暂停 syncInterval 秒，避免对 API Server 造成过大压力
