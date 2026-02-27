@@ -42,4 +42,13 @@ const (
 
 	// metricsAddr 是metrics服务器监听的完整地址（IP:端口）
 	metricsAddr = metricsIp+metricsPort
+
+	// svcPort 是 API 服务器监听的端口
+	svcPort = ":8081"
+
+	// svcIp 是 API 服务器监听的IP地址
+	svcIp = "0.0.0.0"
+
+	// svcAddr 是 API 服务器监听的完整地址（IP:端口）
+	svcAddr = svcIp+svcPort
 )

@@ -11,6 +11,7 @@ import (
 	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
 	dnsserver "github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/dnsserver"
 	"github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/metrics"
+	"github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/svc"
 )
 
 func main() {
@@ -40,6 +41,13 @@ func main() {
 	go func() {
 		if err := metricsManager.Start(metricsAddr); err != nil {
 			klog.Errorf("Metrics server failed: %v", err)
+		}
+	}()
+
+	// 启动 API HTTP 服务器
+	go func() {
+		if err := svc.StartServer(svcAddr, dnsSrv); err != nil {
+			klog.Errorf("API server failed: %v", err)
 		}
 	}()
 
