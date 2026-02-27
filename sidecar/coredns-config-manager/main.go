@@ -37,7 +37,6 @@ func main() {
 	defer dnsSrv.Stop()
 
 	// 启动 metrics HTTP 服务器
-	metricsAddr := "0.0.0.0:8080"
 	go func() {
 		if err := metricsManager.Start(metricsAddr); err != nil {
 			klog.Errorf("Metrics server failed: %v", err)
