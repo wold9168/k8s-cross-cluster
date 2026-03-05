@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -12,84 +11,101 @@ import (
 	"github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager/pkg/generator"
 )
 
-func CheckPermissions(clientset kubernetes.Interface, namespace *string) error {
-	ctx := context.TODO()
-	ns := k8sclient.GetCurrentNamespaceOrProvided(namespace)
-
-	klog.Infof("Checking permissions in namespace: %s", ns)
-
-	// if err := k8sclient.CheckConfigMapPermissions(clientset, ctx, ns); err != nil {
-	// 	return err
-	// }
-
-	if err := k8sclient.CheckServicePermissions(clientset, ctx, ns); err != nil {
-		return err
-	}
-
-	klog.Infof("All required permissions verified in namespace: %s", ns)
-	return nil
+// PermissionChecker validates Kubernetes API permissions
+type PermissionChecker struct {
+	clientset kubernetes.Interface
+	namespace string
 }
 
-func main() {
-	// Authentication
-	config, err := k8sclient.GetConfig()
-	if err != nil {
-		klog.Error("Authentication failed due to ", err.Error())
-		panic(err.Error())
+// NewPermissionChecker creates a new PermissionChecker
+func NewPermissionChecker(clientset kubernetes.Interface, namespace string) *PermissionChecker {
+	return &PermissionChecker{
+		clientset: clientset,
+		namespace: namespace,
 	}
-	// 使用上述配置创建一个 Kubernetes 客户端集（clientset），可用于访问所有 Kubernetes API 组
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		klog.Error("Creating clientset failed due to ", err.Error())
-		panic(err.Error())
-	}
+}
 
+// CheckServicePermissions verifies read access to Services
+func (pc *PermissionChecker) CheckServicePermissions(ctx context.Context) error {
+	return k8sclient.CheckServicePermissions(pc.clientset, ctx, pc.namespace)
+}
+
+// ConfigSyncer orchestrates periodic configuration synchronization
+type ConfigSyncer struct {
+	configManager *generator.ConfigManager
+	permissionChecker *PermissionChecker
+	interval      time.Duration
+}
+
+// NewConfigSyncer creates a new ConfigSyncer
+func NewConfigSyncer(configManager *generator.ConfigManager, permissionChecker *PermissionChecker, interval time.Duration) *ConfigSyncer {
+	return &ConfigSyncer{
+		configManager:     configManager,
+		permissionChecker: permissionChecker,
+		interval:          interval,
+	}
+}
+
+// Run starts the configuration synchronization loop
+func (cs *ConfigSyncer) Run(ctx context.Context) {
 	for {
-		// 鉴权检查：验证当前上下文是否支持读取 Services
-		if err := CheckPermissions(clientset, nil); err != nil {
-			klog.Errorf("Permission check failed: %v, retrying in 10 seconds...", err)
-			time.Sleep(10 * time.Second)
+		// Check permissions
+		if err := cs.permissionChecker.CheckServicePermissions(ctx); err != nil {
+			klog.Errorf("Permission check failed: %v, retrying in %v", err, cs.interval)
+			time.Sleep(cs.interval)
 			continue
 		}
 
-
-		// 获取当前命名空间中的所有 Service
-		serviceList, err := k8sclient.GetAllServicesInCurrentNamespace(clientset, nil)
-		if err != nil {
-			// 如果获取 Service 失败，记录错误但不 panic，继续执行
-			klog.Errorf("Failed to list Services: %v\n", err)
-		} else {
-			for _, svc := range serviceList.Items {
-				klog.Infof("Successfully retrieved Service: %s\n", svc.Name)
-			}
-
-			// 根据 Service 生成对应的跨集群访问域名
-			remoteDomains, domainMapping := generator.GenerateCrossClusterServiceDomains(clientset, serviceList)
-			for _, remoteDomain := range remoteDomains {
-				klog.Infof("Remote domain: %s -> Local domain: %s\n", remoteDomain, domainMapping[remoteDomain])
-			}
-
-			// 根据跨集群访问域名生成对应的 ConfigMap
-			caddyConfig := generator.GenerateCaddyConfig(remoteDomains, domainMapping)
-
-			// 将 ConfigMap 写入到容器的 /config/Caddyfile 文件中
-			configDir := "/config"
-			configPath := "/config/Caddyfile"
-
-			// 确保目录存在
-			if err := os.MkdirAll(configDir, 0755); err != nil {
-				klog.Errorf("Failed to create config directory '%s': %v", configDir, err)
-			} else {
-				klog.Infof("Writing Caddy config to file '%s':\n%s", configPath, caddyConfig)
-				if err := os.WriteFile(configPath, []byte(caddyConfig), 0644); err != nil {
-					klog.Errorf("Failed to write Caddy config file '%s': %v", configPath, err)
-				} else {
-					klog.Infof("Successfully wrote Caddy config to file '%s'", configPath)
-				}
-			}
+		// Sync configuration
+		if err := cs.configManager.Sync(ctx); err != nil {
+			klog.Errorf("Configuration sync failed: %v", err)
 		}
 
-		// 每次循环后暂停 10 秒，避免对 API Server 造成过大压力
-		time.Sleep(10 * time.Second)
+		time.Sleep(cs.interval)
 	}
+}
+
+func main() {
+	ctx := context.Background()
+
+	// Kubernetes client setup
+	config, err := k8sclient.GetConfig()
+	if err != nil {
+		klog.Error("Authentication failed: ", err.Error())
+		panic(err.Error())
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		klog.Error("Creating clientset failed: ", err.Error())
+		panic(err.Error())
+	}
+
+	// Get current namespace
+	namespace, err := k8sclient.GetCurrentNamespace()
+	if err != nil {
+		klog.Warningf("Failed to get current namespace, using default: %v", err)
+		namespace = "default"
+	}
+
+	klog.Infof("Running in namespace: %s", namespace)
+
+	// Initialize components
+	configManager := generator.NewConfigManager(
+		clientset,
+		generator.WithConfigPath("/config/Caddyfile"),
+		generator.WithConfigDir("/config"),
+	)
+
+	// Load cluster name
+	if err := configManager.LoadClusterName("tailscale-cluster-name"); err != nil {
+		klog.Warningf("Failed to load cluster name: %v", err)
+	}
+
+	permissionChecker := NewPermissionChecker(clientset, namespace)
+
+	syncer := NewConfigSyncer(configManager, permissionChecker, 10*time.Second)
+
+	klog.Infof("Starting Caddy config syncer (interval: 10s)")
+	syncer.Run(ctx)
 }
