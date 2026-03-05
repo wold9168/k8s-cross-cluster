@@ -2,12 +2,11 @@
 
 import os
 import tempfile
-import shutil
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 from .config import InstallerConfig
-from .kubectl import Kubectl, KubectlResult
+from .kubectl import Kubectl
 
 
 class TailscaleInstaller:
@@ -150,26 +149,21 @@ class TailscaleInstaller:
             f"TS_AUTHKEY: {self.config.auth_key}",
         )
 
-    def generate_extra_args_configmap(self) -> str:
-        """Generate extra args ConfigMap with configured values.
+    def _update_ts_hostname(self, content: str) -> str:
+        """Update TS_HOSTNAME in ConfigMap content.
+
+        Args:
+            content: ConfigMap content
 
         Returns:
-            Updated manifest content
+            Updated content
         """
-        content = self._read_manifest(self.EXTRA_ARGS_FILE)
+        import re
 
-        # Replace TS_EXTRA_ARGS
-        content = content.replace(
-            'TS_EXTRA_ARGS: ""',
-            f'TS_EXTRA_ARGS: "{self.config.ts_extra_args}"',
-        )
-
-        # Handle TS_HOSTNAME
         if self.config.cluster_name:
             ts_hostname_line = f'  TS_HOSTNAME: "{self.config.ts_hostname}"'
             if "TS_HOSTNAME:" in content:
                 # Replace existing
-                import re
                 content = re.sub(
                     r"TS_HOSTNAME: .*",
                     ts_hostname_line.strip(),
@@ -183,8 +177,26 @@ class TailscaleInstaller:
                 )
         else:
             # Remove TS_HOSTNAME if cluster name not set
-            import re
             content = re.sub(r"\n  TS_HOSTNAME:.*", "", content)
+
+        return content
+
+    def generate_extra_args_configmap(self) -> str:
+        """Generate extra args ConfigMap with configured values.
+
+        Returns:
+            Updated manifest content
+        """
+        content = self._read_manifest(self.EXTRA_ARGS_FILE)
+
+        # Handle TS_EXTRA_ARGS
+        content = content.replace(
+            'TS_EXTRA_ARGS: ""',
+            f'TS_EXTRA_ARGS: "{self.config.ts_extra_args}"',
+        )
+
+        # Handle TS_HOSTNAME
+        content = self._update_ts_hostname(content)
 
         return content
 

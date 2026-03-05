@@ -1,6 +1,6 @@
 """Configuration data classes for the installer."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 
@@ -10,7 +10,7 @@ class InstallerConfig:
 
     Attributes:
         auth_key: Tailscale authentication key (required)
-        login_server: Tailscale login server URL (optional)
+        extra_args: Extra arguments for Tailscale (optional)
         cluster_name: Cluster name for identification (required)
         context: Kubernetes cluster context (optional, uses current if not specified)
         verbose: Enable verbose/debug output
@@ -19,7 +19,7 @@ class InstallerConfig:
 
     auth_key: str
     cluster_name: str
-    login_server: Optional[str] = None
+    extra_args: Optional[str] = None
     context: Optional[str] = None
     verbose: bool = False
     force: bool = False
@@ -42,7 +42,7 @@ class InstallerConfig:
 
     @property
     def ts_extra_args(self) -> str:
-        """Generate TS_EXTRA_ARGS value."""
-        if self.login_server:
-            return f"--login-server={self.login_server}"
+        """Generate TS_EXTRA_ARGS value from extra_args."""
+        if self.extra_args:
+            return self.extra_args
         return ""

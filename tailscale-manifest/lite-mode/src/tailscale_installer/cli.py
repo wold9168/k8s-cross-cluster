@@ -16,8 +16,8 @@ def create_parser() -> argparse.ArgumentParser:
         epilog="""
 Examples:
   %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster
-  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --login-server https://login.example.com
-  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --context my-cluster-context -v
+  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --extra-args "--login-server https://login.example.com"
+  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --extra-args "--login-server https://login.example.com --operator admin" --context my-cluster-context -v
   %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --force
         """,
     )
@@ -33,8 +33,8 @@ Examples:
         help="Cluster name for identification (required)",
     )
     parser.add_argument(
-        "--login-server",
-        help="Tailscale login server URL (optional)",
+        "--extra-args",
+        help="Extra arguments for Tailscale, space-separated (optional, e.g., '--login-server https://login.example.com --operator admin')",
     )
     parser.add_argument(
         "--context",
@@ -86,7 +86,7 @@ def main() -> int:
             config = InstallerConfig(
                 auth_key=args.authkey,
                 cluster_name=args.cluster_name,
-                login_server=args.login_server,
+                extra_args=args.extra_args,
                 context=args.context,
                 verbose=args.verbose,
                 force=args.force,
