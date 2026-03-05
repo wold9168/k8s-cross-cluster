@@ -5,38 +5,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
 )
-
-// PermissionCheckerImpl validates Kubernetes API permissions
-type PermissionCheckerImpl struct {
-	clientset *kubernetes.Clientset
-	namespace string
-}
-
-// NewPermissionChecker creates a new PermissionCheckerImpl
-func NewPermissionChecker(clientset *kubernetes.Clientset, namespace string) *PermissionCheckerImpl {
-	return &PermissionCheckerImpl{
-		clientset: clientset,
-		namespace: namespace,
-	}
-}
-
-// Check verifies permissions for ConfigMaps and Pods
-func (pc *PermissionCheckerImpl) Check(ctx context.Context) error {
-	if err := k8sclient.CheckConfigMapPermissions(pc.clientset, ctx, pc.namespace); err != nil {
-		return err
-	}
-	if err := k8sclient.CheckPodPermissions(pc.clientset, ctx, pc.namespace); err != nil {
-		return err
-	}
-	return nil
-}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -68,11 +42,11 @@ func main() {
 
 	klog.Infof("Running in namespace: %s", namespace)
 
-	// Initialize DNSConfigManager
-	dnsConfigManager := NewDNSConfigManager(clientset, DefaultDNSConfigManagerConfig())
+	// Get singleton App instance
+	app := GetApp()
 
-	// Initialize components
-	if err := dnsConfigManager.Initialize(ctx); err != nil {
+	// Initialize the application
+	if err := app.Initialize(clientset, namespace); err != nil {
 		klog.Error("Initialization failed: ", err.Error())
 		panic(err.Error())
 	}
@@ -82,34 +56,13 @@ func main() {
 		<-sigChan
 		klog.Info("Shutdown signal received")
 		cancel()
-		if err := dnsConfigManager.Shutdown(); err != nil {
+		if err := app.Shutdown(); err != nil {
 			klog.Errorf("Shutdown error: %v", err)
 		}
 	}()
 
-	// Permission check loop and sync
-	permissionChecker := NewPermissionChecker(clientset, namespace)
-
-	klog.Info("Starting DNS configuration manager")
-	ticker := time.NewTicker(syncInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			klog.Info("Shutting down gracefully")
-			return
-		case <-ticker.C:
-			// Check permissions
-			if err := permissionChecker.Check(ctx); err != nil {
-				klog.Errorf("Authorization failed: %v, retrying in %v", err, syncInterval)
-				continue
-			}
-
-			// Perform sync
-			if err := dnsConfigManager.Sync(ctx); err != nil {
-				klog.Errorf("Sync failed: %v", err)
-			}
-		}
+	// Run the application (blocking call)
+	if err := app.Run(ctx); err != nil {
+		klog.Error("Application error: ", err.Error())
 	}
 }
