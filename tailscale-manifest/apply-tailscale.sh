@@ -12,18 +12,21 @@ CLUSTER_NAME=""
 CLUSTER_CONTEXT=""
 USE_CONTEXT_FLAG=""
 VERBOSE=false
+FORCE_INSTALL=false
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 --authkey <TS_AUTHKEY> --cluster-name <CLUSTER_NAME> [--login-server <LOGIN_SERVER_URL>] [--context <CLUSTER_CONTEXT>] [-v]"
+    echo "Usage: $0 --authkey <TS_AUTHKEY> --cluster-name <CLUSTER_NAME> [--login-server <LOGIN_SERVER_URL>] [--context <CLUSTER_CONTEXT>] [-v] [--force]"
     echo "  --authkey: Tailscale auth key (required)"
     echo "  --login-server: Tailscale login server URL (optional, uses default if not specified)"
     echo "  --cluster-name: Cluster name for identification (required)"
     echo "  --context: Kubernetes cluster context (optional, uses current context if not specified)"
     echo "  -v: Enable verbose output for debugging"
+    echo "  --force: Force installation even if resources already exist"
     echo ""
     echo "Example: $0 --authkey tskey-1234567890 --login-server https://my-login-server.example.com --cluster-name my-cluster --context my-cluster-context -v"
     echo "Example without context (uses current context): $0 --authkey tskey-1234567890 --cluster-name my-cluster -v"
+    echo "Example with force reinstall: $0 --authkey tskey-1234567890 --cluster-name my-cluster --force"
     exit 1
 }
 
@@ -85,6 +88,64 @@ handle_kubernetes_context() {
 
         verbose_log "No context specified, using current context: $CURRENT_CONTEXT"
         echo "Using current Kubernetes context: $CURRENT_CONTEXT"
+    fi
+}
+
+# Function to check for duplicate installation
+check_duplicate_installation() {
+    if [[ "$FORCE_INSTALL" == true ]]; then
+        echo "Force installation enabled, skipping duplicate check..."
+        return 0
+    fi
+
+    echo "Checking for existing Tailscale installation..."
+
+    local duplicates_found=false
+    local existing_resources=()
+
+    # Check for key Tailscale resources
+    declare -a resource_checks=(
+        "serviceaccount/tailscale"
+        "clusterrole/tailscale"
+        "clusterrolebinding/tailscale"
+        "configmap/tailscale-extra-args"
+        "configmap/tailscale-cluster-name"
+        "secret/tailscale-auth"
+        "deployment/tailscale"
+    )
+
+    for resource in "${resource_checks[@]}"; do
+        verbose_log "Checking for resource: $resource"
+        if kubectl get $resource $USE_CONTEXT_FLAG &> /dev/null; then
+            existing_resources+=("$resource")
+            duplicates_found=true
+            verbose_log "Found existing resource: $resource"
+        fi
+    done
+
+    if [ "$duplicates_found" = true ]; then
+        echo ""
+        echo "WARNING: Tailscale resources already exist in the cluster!"
+        echo "Found the following existing resources:"
+        for resource in "${existing_resources[@]}"; do
+            echo "  - $resource"
+        done
+        echo ""
+        echo "This may indicate that Tailscale has already been installed."
+        echo "To force reinstall, use the --force flag."
+        echo "Or, to update existing resources, you can proceed without the --force flag (kubectl apply is idempotent)."
+        echo ""
+
+        # Ask user for confirmation
+        read -p "Do you want to continue and update existing resources? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Installation cancelled by user."
+            exit 0
+        fi
+        echo "Continuing with installation..."
+    else
+        echo "No existing Tailscale installation found."
     fi
 }
 
@@ -251,6 +312,10 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
+        --force)
+            FORCE_INSTALL=true
+            shift
+            ;;
         --help|-h)
             usage
             ;;
@@ -265,6 +330,7 @@ done
 validate_arguments
 validate_kubectl
 handle_kubernetes_context
+check_duplicate_installation
 apply_rbac
 update_auth_secret
 apply_userspace_proxy

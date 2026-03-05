@@ -1,6 +1,6 @@
 module github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager
 
-go 1.24.11
+go 1.25.3
 
 require (
 	github.com/wold9168/k8s-cross-cluster/lib/k8sclient v0.1.0

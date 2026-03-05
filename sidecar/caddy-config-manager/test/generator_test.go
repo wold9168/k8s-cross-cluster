@@ -171,9 +171,11 @@ func TestGenerateCaddyConfig(t *testing.T) {
 	config := generator.GenerateCaddyConfig(remoteDomains, domainMapping)
 
 	expected := `service1.test-ns.svc.clusterwise.remote {
+    tls internal
     reverse_proxy service1.test-ns.svc.cluster.local
 }
 service2.test-ns.svc.clusterwise.remote {
+    tls internal
     reverse_proxy service2.test-ns.svc.cluster.local
 }
 `

@@ -13,7 +13,7 @@ import (
 )
 
 func CheckPermissions(clientset kubernetes.Interface, namespace *string) error {
-	ctx := context.Background()
+	ctx := context.TODO()
 	ns := k8sclient.GetCurrentNamespaceOrProvided(namespace)
 
 	klog.Infof("Checking permissions in namespace: %s", ns)

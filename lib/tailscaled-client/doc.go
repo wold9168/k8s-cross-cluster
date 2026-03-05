@@ -7,7 +7,7 @@ allowing you to get status information, manage connections, and control the Tail
 Example usage:
 
 	client := tailscaledclient.New()
-	ctx := context.Background()
+	ctx := context.TODO()
 
 	status, err := client.Status(ctx)
 	if err != nil {

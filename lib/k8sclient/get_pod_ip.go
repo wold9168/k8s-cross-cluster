@@ -9,7 +9,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 )
 
 // GetCurrentPodIP retrieves the IP address of the current Pod
@@ -24,22 +23,18 @@ func GetCurrentPodIP(clientset kubernetes.Interface) (string, error) {
 	// Try 1: Get Pod IP from Kubernetes API
 	ip, err = getPodIPFromK8sAPI(clientset)
 	if err == nil && ip != "" {
-		klog.Infof("Got Pod IP from K8s API: %s", ip)
 		return ip, nil
 	}
-	klog.Infof("Failed to get Pod IP from K8s API: %v, trying fallback methods", err)
 
 	// Try 2: Get Pod IP from environment variable
 	ip = os.Getenv("POD_IP")
 	if ip != "" {
-		klog.Infof("Got Pod IP from POD_IP env: %s", ip)
 		return ip, nil
 	}
 
 	// Try 3: Get IP from network interfaces
 	ip, err = getLocalIP()
 	if err == nil && ip != "" {
-		klog.Infof("Got local IP from network interface: %s", ip)
 		return ip, nil
 	}
 
