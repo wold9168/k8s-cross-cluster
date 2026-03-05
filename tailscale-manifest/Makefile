@@ -1,45 +1,84 @@
 # Makefile for managing k8s-cross-cluster deployment
 
-.PHONY: install uninstall
+.PHONY: install uninstall setup help
 
-# Install target - calls apply-tailscale.sh with optional parameters
-install: ## Install the tailscale resource into the cluster, use `make ARGS=... install` to pass arguments to the script (apply-tailscale.sh). Supported args: --authkey, --login-server, --cluster-name, --context. Run `./apply-tailscale.sh --help` for more info.
+# Default values
+CONTEXT ?=
+ARGS ?=
+
+# Install target - uses Python installer
+install: ## Install Tailscale resources into the cluster. Use `make ARGS="..." install` to pass arguments.
 	@echo "Installing k8s-cross-cluster components..."
-	@./apply-tailscale.sh $(ARGS)
+	@uv run tailscale-install $(ARGS)
 
-# Uninstall target - removes all tailscale resources including:
-# - resources with label name=k8s-cross-cluster
-# - tailscale-userspace-proxy.yaml
-# - tailscale-rbac.yaml
-# - tailscale-extra-args-configmap.yaml
-# - tailscale-auth-secret.yaml
-# - tailscale-cluster-name-configmap.yaml
-# CONTEXT parameter should be passed via ARGS as --context your-context
-uninstall: ## Delete all the tailscale resource from the cluster.
-	@echo "Checking for context in ARGS..."
-	@if [ -z "$(filter --context,$(ARGS))" ] && [ -z "$(CONTEXT)" ]; then \
-		echo "Error: CONTEXT is not set. Please run with 'make ARGS='--context your-context' uninstall' or 'make CONTEXT=your-context uninstall'"; \
+# Uninstall target - removes all Tailscale resources
+uninstall: ## Uninstall Tailscale resources from the cluster. Requires CONTEXT=your-context or ARGS="--context your-context"
+	@if [ -z "$(CONTEXT)" ] && [ -z "$(findstring --context,$(ARGS))" ]; then \
+		echo "Error: CONTEXT is not set. Please run with 'make CONTEXT=your-context uninstall' or 'make ARGS=\"--context your-context\" uninstall'"; \
 		exit 1; \
 	fi
-	@if [ -n "$(filter --context,$(ARGS))" ]; then \
-		CONTEXT_VALUE=$$(echo $(ARGS) | sed -n 's/.*--context \([^ ]*\).*/\1/p'); \
+	@if [ -n "$(CONTEXT)" ]; then \
+		uv run tailscale-install --uninstall --context $(CONTEXT); \
 	else \
-		CONTEXT_VALUE=$(CONTEXT); \
+		uv run tailscale-install --uninstall $(ARGS); \
+	fi
+
+# Setup target - install dependencies using uv
+setup: ## Set up the Python environment using uv
+	@echo "Setting up Python environment with uv..."
+	@uv sync
+	@echo "Setup complete. Run 'uv run tailscale-install --help' for usage."
+
+# Dev setup - install with dev dependencies
+setup-dev: ## Set up development environment with test dependencies
+	@echo "Setting up development environment..."
+	@uv sync --dev
+	@echo "Development setup complete."
+
+# Run tests
+test: ## Run tests
+	@uv run pytest
+
+# Format code
+format: ## Format code with ruff
+	@uv run ruff format src/
+
+# Lint code
+lint: ## Lint code with ruff
+	@uv run ruff check src/
+
+# Legacy uninstall target - direct kubectl commands (fallback)
+uninstall-legacy: ## Legacy uninstall using kubectl directly
+	@if [ -z "$(CONTEXT)" ] && [ -z "$(findstring --context,$(ARGS))" ]; then \
+		echo "Error: CONTEXT is not set"; \
+		exit 1; \
+	fi
+	@if [ -n "$(CONTEXT)" ]; then \
+		CTX=$(CONTEXT); \
+	else \
+		CTX=$$(echo $(ARGS) | sed -n 's/.*--context \([^ ]*\).*/\1/p'); \
 	fi; \
-	echo "Uninstalling k8s-cross-cluster components from context $$CONTEXT_VALUE..."; \
-	kubectl --context $$CONTEXT_VALUE delete -f tailscale-userspace-proxy.yaml || true; \
-	kubectl --context $$CONTEXT_VALUE delete -f tailscale-rbac.yaml || true; \
-	kubectl --context $$CONTEXT_VALUE delete -f tailscale-extra-args-configmap.yaml || true; \
-	kubectl --context $$CONTEXT_VALUE delete -f tailscale-auth-secret.yaml || true; \
-	kubectl --context $$CONTEXT_VALUE delete -f tailscale-cluster-name-configmap.yaml || true; \
-	kubectl --context $$CONTEXT_VALUE delete all -l name=k8s-cross-cluster || true
+	echo "Uninstalling from context $$CTX..."; \
+	kubectl --context $$CTX delete -f tailscale-userspace-proxy.yaml || true; \
+	kubectl --context $$CTX delete -f tailscale-rbac.yaml || true; \
+	kubectl --context $$CTX delete -f tailscale-extra-args-configmap.yaml || true; \
+	kubectl --context $$CTX delete -f tailscale-auth-secret.yaml || true; \
+	kubectl --context $$CTX delete -f tailscale-cluster-name-configmap.yaml || true; \
+	kubectl --context $$CTX delete all -l name=k8s-cross-cluster || true
 
 help: ## Show this help
 	@echo ""
-	@echo "Specify a command. The choices are:"
+	@echo "k8s-cross-cluster Tailscale Installer"
+	@echo "====================================="
+	@echo ""
+	@echo "Specify a command:"
 	@echo ""
 	@grep -hE '^[0-9a-zA-Z_-]+:.*?## .*$$' ${MAKEFILE_LIST} | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[0;36m%-20s\033[m %s\n", $$1, $$2}'
 	@echo ""
-.PHONY: help
+	@echo "Examples:"
+	@echo "  make setup"
+	@echo "  make ARGS='--authkey tskey-xxx --cluster-name my-cluster' install"
+	@echo "  make CONTEXT=my-context uninstall"
+	@echo ""
 
 .DEFAULT_GOAL := help
