@@ -27,7 +27,7 @@ kubectl --context cluster2 run -it --rm \
   -- bash
 # 以下指令在 debian-test 测试镜像中进行
 $ apt update && apt install -y curl
-$ curl -x ALL_PROXY=socks5://tailscale-proxy.default.svc.cluster.local:1055 -k -v https://k8sbc.default.svc.na.remote
+$ curl -x socks5://tailscale-proxy.default.svc.cluster.local:1055 -k -v https://k8sbc.default.svc.na.remote
 # 使用 服务名.命名空间.svc.tailscale节点名（无-tsgateway后缀）.remote 作为远程连接的域名
 $ exit
 
