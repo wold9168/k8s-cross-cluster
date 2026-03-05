@@ -4,11 +4,11 @@
 
 ## 可行性验证
 
-`tailscale-manifest/` 目录下的安装脚本仍有较多问题，请不要在业务集群上进行测试。
+`tailscale-manifest/lite-mode` 目录下的安装脚本仍有较多问题，请不要在业务集群上进行测试。
 
 ```bash
 # 假设你已经有了两个 k8s 集群，其 context 分别为 cluster1 和 cluster2
-cd tailscale-manifest
+cd tailscale-manifest/lite-mode
 make ARGS="--authkey your-headscale-preauth-key --login-server your-headscale-server-ip-and-port --context cluster1 --cluster-name na" install
 make ARGS="--authkey your-headscale-preauth-key --login-server your-headscale-server-ip-and-port --context cluster2 --cluster-name nb" install
 # --cluster-name 影响对应集群在你的 headscale 中注册的 HostName
