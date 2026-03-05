@@ -1,6 +1,6 @@
 # k8s-cross-cluster
 
-基于 tailscale 为 k8s cluster 提供了一种 L5/L7 的跨集群互联方案
+基于 tailscale 为 k8s cluster 提供了一种 L5 的跨集群互联方案
 
 ## 可行性验证
 
@@ -9,8 +9,8 @@
 ```bash
 # 假设你已经有了两个 k8s 集群，其 context 分别为 cluster1 和 cluster2
 cd tailscale-manifest/lite-mode
-make ARGS="--authkey your-headscale-preauth-key --login-server your-headscale-server-ip-and-port --context cluster1 --cluster-name na" install
-make ARGS="--authkey your-headscale-preauth-key --login-server your-headscale-server-ip-and-port --context cluster2 --cluster-name nb" install
+make ARGS="--authkey your-headscale-preauth-key --extra-args='--login-server your-headscale-server-ip-and-port' --context cluster1 --cluster-name na" install
+make ARGS="--authkey your-headscale-preauth-key --extra-args='--login-server your-headscale-server-ip-and-port' --context cluster2 --cluster-name nb" install
 # --cluster-name 影响对应集群在你的 headscale 中注册的 HostName
 # --cluster-name foo，意味着对应的实例在 headscale 中的注册名为 foo-tsgateway
 # 请确保 headscale 中没有重名节点
