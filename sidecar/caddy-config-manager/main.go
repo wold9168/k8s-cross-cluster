@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -11,62 +13,13 @@ import (
 	"github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager/pkg/generator"
 )
 
-// PermissionChecker validates Kubernetes API permissions
-type PermissionChecker struct {
-	clientset kubernetes.Interface
-	namespace string
-}
-
-// NewPermissionChecker creates a new PermissionChecker
-func NewPermissionChecker(clientset kubernetes.Interface, namespace string) *PermissionChecker {
-	return &PermissionChecker{
-		clientset: clientset,
-		namespace: namespace,
-	}
-}
-
-// CheckServicePermissions verifies read access to Services
-func (pc *PermissionChecker) CheckServicePermissions(ctx context.Context) error {
-	return k8sclient.CheckServicePermissions(pc.clientset, ctx, pc.namespace)
-}
-
-// ConfigSyncer orchestrates periodic configuration synchronization
-type ConfigSyncer struct {
-	configManager *generator.ConfigManager
-	permissionChecker *PermissionChecker
-	interval      time.Duration
-}
-
-// NewConfigSyncer creates a new ConfigSyncer
-func NewConfigSyncer(configManager *generator.ConfigManager, permissionChecker *PermissionChecker, interval time.Duration) *ConfigSyncer {
-	return &ConfigSyncer{
-		configManager:     configManager,
-		permissionChecker: permissionChecker,
-		interval:          interval,
-	}
-}
-
-// Run starts the configuration synchronization loop
-func (cs *ConfigSyncer) Run(ctx context.Context) {
-	for {
-		// Check permissions
-		if err := cs.permissionChecker.CheckServicePermissions(ctx); err != nil {
-			klog.Errorf("Permission check failed: %v, retrying in %v", err, cs.interval)
-			time.Sleep(cs.interval)
-			continue
-		}
-
-		// Sync configuration
-		if err := cs.configManager.Sync(ctx); err != nil {
-			klog.Errorf("Configuration sync failed: %v", err)
-		}
-
-		time.Sleep(cs.interval)
-	}
-}
-
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle shutdown signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Kubernetes client setup
 	config, err := k8sclient.GetConfig()
@@ -90,22 +43,27 @@ func main() {
 
 	klog.Infof("Running in namespace: %s", namespace)
 
-	// Initialize components
-	configManager := generator.NewConfigManager(
-		clientset,
-		generator.WithConfigPath("/config/Caddyfile"),
-		generator.WithConfigDir("/config"),
-	)
+	// Get singleton App instance
+	app := generator.GetApp()
 
-	// Load cluster name
-	if err := configManager.LoadClusterName("tailscale-cluster-name"); err != nil {
-		klog.Warningf("Failed to load cluster name: %v", err)
+	// Initialize the application
+	if err := app.Initialize(clientset, namespace); err != nil {
+		klog.Error("Initialization failed: ", err.Error())
+		panic(err.Error())
 	}
 
-	permissionChecker := NewPermissionChecker(clientset, namespace)
+	// Setup shutdown handler
+	go func() {
+		<-sigChan
+		klog.Info("Shutdown signal received")
+		cancel()
+		if err := app.Shutdown(); err != nil {
+			klog.Errorf("Shutdown error: %v", err)
+		}
+	}()
 
-	syncer := NewConfigSyncer(configManager, permissionChecker, 10*time.Second)
-
-	klog.Infof("Starting Caddy config syncer (interval: 10s)")
-	syncer.Run(ctx)
+	// Run the application (blocking call)
+	if err := app.Run(ctx); err != nil {
+		klog.Error("Application error: ", err.Error())
+	}
 }
