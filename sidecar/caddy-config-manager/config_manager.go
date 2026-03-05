@@ -1,4 +1,4 @@
-package generator
+package main
 
 import (
 	"context"
@@ -54,7 +54,7 @@ func (cm *ConfigManager) LoadClusterName(configMapName string) error {
 	return cm.serviceDiscovery.LoadClusterNameFromConfigMap(configMapName)
 }
 
-// GenerateConfig generates Caddy configuration from Kubernetes services
+// GenerateConfig generates Caddy configurations from Kubernetes services
 func (cm *ConfigManager) GenerateConfig(ctx context.Context) (string, error) {
 	// List services
 	serviceList, err := cm.serviceDiscovery.ListServices(ctx)

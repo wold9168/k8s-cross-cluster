@@ -1,4 +1,4 @@
-package generator
+package main
 
 // DomainMapping represents the mapping between remote and local domains
 type DomainMapping struct {

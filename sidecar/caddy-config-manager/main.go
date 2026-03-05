@@ -10,7 +10,6 @@ import (
 	"k8s.io/klog/v2"
 
 	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
-	"github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager/pkg/generator"
 )
 
 func main() {
@@ -44,7 +43,7 @@ func main() {
 	klog.Infof("Running in namespace: %s", namespace)
 
 	// Get singleton App instance
-	app := generator.GetApp()
+	app := GetApp()
 
 	// Initialize the application
 	if err := app.Initialize(clientset, namespace); err != nil {

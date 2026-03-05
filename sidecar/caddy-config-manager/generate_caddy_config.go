@@ -1,4 +1,4 @@
-package generator
+package main
 
 // GenerateCaddyConfig generates Caddy configuration from domain mappings
 // This is a legacy function kept for backward compatibility

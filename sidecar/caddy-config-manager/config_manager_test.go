@@ -1,4 +1,4 @@
-package generator
+package main
 
 import (
 	"context"
@@ -252,11 +252,11 @@ func TestConfigManager_Generate(t *testing.T) {
 
 func TestConfigManagerOption(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
-	
+
 	// Test WithConfigPath option
 	cm := NewConfigManager(clientset, WithConfigPath("/test/path"))
 	assert.Equal(t, "/test/path", cm.configPath)
-	
+
 	// Test WithConfigDir option
 	cm2 := NewConfigManager(clientset, WithConfigDir("/test/dir"))
 	assert.Equal(t, "/test/dir", cm2.configDir)
