@@ -1,5 +1,9 @@
 package main
 
+import (
+	"net/netip"
+)
+
 // PeerInfo represents information about a Tailscale peer node
 type PeerInfo struct {
 	ID           string
@@ -45,4 +49,18 @@ type CoreDNSConfig struct {
 type ManagedSection struct {
 	StartMarker string
 	EndMarker   string
+}
+
+// RemoteServiceList represents the service list response from remote cluster's /svc endpoint
+type RemoteServiceList struct {
+	Timestamp int64                        `json:"timestamp"`
+	Services  map[string][]RemoteService   `json:"services"`
+	Count     int                          `json:"count"`
+}
+
+// ServiceEndpoint represents a resolved service endpoint for load balancing
+type ServiceEndpoint struct {
+	ClusterName string
+	Service     RemoteService
+	IP          netip.Addr
 }

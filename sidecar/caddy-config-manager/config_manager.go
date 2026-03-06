@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"sync"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -14,7 +15,14 @@ type ConfigManager struct {
 	configGenerator  *CaddyConfigGenerator
 	configPath       string
 	configDir        string
+
+	// 回调函数
+	onConfigUpdate func(serviceCount int)
+	mu             sync.RWMutex
 }
+
+// ConfigUpdateCallback 配置更新回调函数类型
+type ConfigUpdateCallback func(serviceCount int)
 
 // ConfigManagerOption configures a ConfigManager instance
 type ConfigManagerOption func(*ConfigManager)
@@ -96,15 +104,63 @@ func (cm *ConfigManager) WriteConfig(config string) error {
 
 // Sync performs a complete sync: generate and write config
 func (cm *ConfigManager) Sync(ctx context.Context) error {
-	config, err := cm.GenerateConfig(ctx)
+	config, serviceCount, err := cm.GenerateConfigWithCount(ctx)
 	if err != nil {
 		return err
 	}
 
-	return cm.WriteConfig(config)
+	if err := cm.WriteConfig(config); err != nil {
+		return err
+	}
+
+	// 通知配置已更新
+	cm.notifyConfigUpdate(serviceCount)
+
+	return nil
+}
+
+// GenerateConfigWithCount 生成配置并返回服务数量
+func (cm *ConfigManager) GenerateConfigWithCount(ctx context.Context) (string, int, error) {
+	// List services
+	serviceList, err := cm.serviceDiscovery.ListServices(ctx)
+	if err != nil {
+		return "", 0, err
+	}
+
+	serviceCount := len(serviceList.Items)
+	klog.Infof("Retrieved %d services", serviceCount)
+	for _, svc := range serviceList.Items {
+		klog.Infof("  - Service: %s/%s", svc.Namespace, svc.Name)
+	}
+
+	// Generate domain mappings
+	domainResult := cm.serviceDiscovery.GenerateDomainMapping(serviceList)
+
+	// Generate Caddy config
+	config := cm.configGenerator.GenerateFromResult(domainResult)
+
+	return config, serviceCount, nil
 }
 
 // GetClusterName returns the current cluster name
 func (cm *ConfigManager) GetClusterName() string {
 	return cm.serviceDiscovery.GetClusterName()
+}
+
+// SetOnConfigUpdate 设置配置更新回调函数
+func (cm *ConfigManager) SetOnConfigUpdate(callback ConfigUpdateCallback) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.onConfigUpdate = callback
+}
+
+// notifyConfigUpdate 通知配置已更新
+func (cm *ConfigManager) notifyConfigUpdate(serviceCount int) {
+	cm.mu.RLock()
+	callback := cm.onConfigUpdate
+	cm.mu.RUnlock()
+
+	if callback != nil {
+		callback(serviceCount)
+	}
 }

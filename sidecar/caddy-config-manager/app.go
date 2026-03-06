@@ -8,13 +8,17 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
+	"github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager/metrics"
 )
 
 // App is the singleton application instance for caddy-config-manager
 type App struct {
 	configManager     *ConfigManager
 	permissionChecker *PermissionChecker
+	metricsManager    *metrics.Manager
 	interval          time.Duration
+	metricsAddr       string
 
 	// Internal state
 	running bool
@@ -30,7 +34,8 @@ var (
 func GetApp() *App {
 	appOnce.Do(func() {
 		appInstance = &App{
-			interval: 10 * time.Second,
+			interval:    syncInterval,
+			metricsAddr: metricsAddr,
 		}
 		klog.Info("Caddy Config Manager App initialized (singleton)")
 	})
@@ -44,6 +49,13 @@ type AppOption func(*App)
 func WithInterval(interval time.Duration) AppOption {
 	return func(a *App) {
 		a.interval = interval
+	}
+}
+
+// WithMetricsAddr sets the metrics server address
+func WithMetricsAddr(addr string) AppOption {
+	return func(a *App) {
+		a.metricsAddr = addr
 	}
 }
 
@@ -61,15 +73,25 @@ func (a *App) Initialize(clientset kubernetes.Interface, namespace string, opts 
 		opt(a)
 	}
 
+	// Initialize metrics manager
+	a.metricsManager = metrics.Init()
+
 	// Initialize components
 	a.configManager = NewConfigManager(
 		clientset,
-		WithConfigPath("/config/Caddyfile"),
-		WithConfigDir("/config"),
+		WithConfigPath(configPath),
+		WithConfigDir(configDir),
 	)
 
+	// 设置配置更新回调函数
+	a.configManager.SetOnConfigUpdate(func(serviceCount int) {
+		a.metricsManager.UpdateConfigUpdate()
+		a.metricsManager.UpdateServiceCount(serviceCount)
+		klog.Infof("Metrics updated: config update count incremented, service count = %d", serviceCount)
+	})
+
 	// Load cluster name
-	if err := a.configManager.LoadClusterName("tailscale-cluster-name"); err != nil {
+	if err := a.configManager.LoadClusterName(clusterNameConfigMap); err != nil {
 		klog.Warningf("Failed to load cluster name: %v", err)
 	}
 
@@ -91,6 +113,13 @@ func (a *App) Run(ctx context.Context) error {
 	a.mu.Unlock()
 
 	klog.Infof("Starting Caddy config syncer (interval: %v)", a.interval)
+
+	// 启动 metrics 服务器
+	go func() {
+		if err := a.metricsManager.Start(a.metricsAddr); err != nil {
+			klog.Errorf("Metrics server failed: %v", err)
+		}
+	}()
 
 	ticker := time.NewTicker(a.interval)
 	defer ticker.Stop()
