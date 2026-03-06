@@ -30,18 +30,12 @@ var (
 	appOnce     sync.Once
 )
 
-// 默认配置
-const (
-	defaultSyncInterval = 10 * time.Second
-	defaultMetricsAddr = ":8080"
-)
-
 // GetApp returns the singleton App instance
 func GetApp() *App {
 	appOnce.Do(func() {
 		appInstance = &App{
-			interval:    defaultSyncInterval,
-			metricsAddr: defaultMetricsAddr,
+			interval:    syncInterval,
+			metricsAddr: metricsAddr,
 		}
 		klog.Info("Caddy Config Manager App initialized (singleton)")
 	})
@@ -85,8 +79,8 @@ func (a *App) Initialize(clientset kubernetes.Interface, namespace string, opts 
 	// Initialize components
 	a.configManager = NewConfigManager(
 		clientset,
-		WithConfigPath("/config/Caddyfile"),
-		WithConfigDir("/config"),
+		WithConfigPath(configPath),
+		WithConfigDir(configDir),
 	)
 
 	// 设置配置更新回调函数
@@ -97,7 +91,7 @@ func (a *App) Initialize(clientset kubernetes.Interface, namespace string, opts 
 	})
 
 	// Load cluster name
-	if err := a.configManager.LoadClusterName("tailscale-cluster-name"); err != nil {
+	if err := a.configManager.LoadClusterName(clusterNameConfigMap); err != nil {
 		klog.Warningf("Failed to load cluster name: %v", err)
 	}
 
