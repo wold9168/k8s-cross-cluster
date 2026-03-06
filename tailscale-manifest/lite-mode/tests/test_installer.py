@@ -265,7 +265,7 @@ class TestGenerateAuthSecret:
         mock_read.return_value = """apiVersion: v1
 kind: Secret
 metadata:
-  name: tailscale-auth
+  name: tailscale
 data:
   TS_AUTHKEY: tskey-xxxxxxxxxx
 """
