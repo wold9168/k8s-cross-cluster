@@ -110,7 +110,7 @@ check_duplicate_installation() {
         "clusterrolebinding/tailscale"
         "configmap/tailscale-extra-args"
         "configmap/tailscale-cluster-name"
-        "secret/tailscale-auth"
+        "secret/tailscale"
         "deployment/tailscale"
     )
 

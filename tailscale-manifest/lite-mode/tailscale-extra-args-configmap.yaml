@@ -7,4 +7,4 @@ metadata:
   labels:
     name: k8s-cross-cluster
 data:
-  TS_EXTRA_ARGS: ""  # 由脚本替换为 --login-server 参数，以指定服务端入口
+  TS_EXTRA_ARGS: ""  # 由 --extra-args 参数指定，可传入多个参数（空格分隔）
