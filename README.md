@@ -37,6 +37,81 @@ make ARGS="--authkey your-headscale-preauth-key --login-server your-headscale-se
 # 清理现场脚本并不具备清理 headscale 中的 na-tsgateway, nb-tsgateway 节点的功能，该部分需要手动清理
 ```
 
+### 轻量模式工作原理
+
+项目流程
+
+```mermaid
+flowchart TB
+    subgraph 安装阶段["安装阶段"]
+        A1["tailscale-manifest/lite-mode<br/>Python 安装器"] --> A2["生成 K8s 资源清单"]
+        A2 --> A3["ServiceAccount<br/>RBAC"]
+        A2 --> A4["ConfigMap<br/>tailscale-extra-args<br/>cluster-name"]
+        A2 --> A5["Secret<br/>tailscale-auth"]
+        A2 --> A6["Deployment<br/>Tailscale Userspace Proxy"]
+    end
+
+    subgraph 运行阶段["运行阶段 - Sidecar 模式"]
+        B1["caddy-config-manager<br/>HTTP 代理配置"] <--> K8sAPI["K8s API Server"]
+        B2["coredns-config-manager<br/>DNS 配置管理"] <--> K8sAPI
+        B2 <--> TS["Tailscale<br/>Local API"]
+        
+        B1 --> B3["ServiceDiscovery<br/>服务发现"]
+        B1 --> B4["CaddyConfigGenerator<br/>配置生成"]
+        B1 --> B5["写入 /config/Caddyfile"]
+        
+        B2 --> B6["PeerDiscovery<br/>节点发现"]
+        B2 --> B7["DNSRecordManager<br/>DNS记录管理"]
+        B2 --> B8["DNSServer<br/>:10053"]
+        B2 --> B9["更新 CoreDNS ConfigMap"]
+    end
+
+    subgraph 跨集群通信["跨集群通信流程"]
+        C1["Client Pod"] -->|"DNS查询<br/>k8sbc.default.svc.na.remote"| C2["集群 DNS<br/>CoreDNS"]
+        C2 -->|"匹配 *.svc.*.remote"| C3["Sidecar DNS<br/>:10053"]
+        C3 -->|"返回 Tailscale Pod IP"| C1
+        
+        C1 -->|"HTTP 请求<br/>k8sbc.default.svc.na.remote"| C4["Caddy反向代理"]
+        C4 -->|"转发到 ClusterIP"| C5["本地 Service"]
+        C5 -->|"通过 Tailscale VPN"| C6["目标集群<br/>Tailscale Pod"]
+    end
+
+    A6 --> B1
+    A6 --> B2
+    
+    style A1 fill:#f9f,stroke:#333
+    style B1 fill:#bbf,stroke:#333
+    style B2 fill:#bbf,stroke:#333
+    style C1 fill:#bfb,stroke:#333
+```
+
+时序图
+
+```mermaid
+sequenceDiagram
+    participant U as 用户/应用
+    participant ClusterDNS as 集群 DNS
+    participant SidecarDNS as coredns-config-manager
+    participant Caddy as caddy-config-manager
+    participant TS as Tailscale
+    participant K8sAPI as K8s API
+
+    Note over U,ClusterDNS: 访问跨集群服务<br/>域名: k8sbc.default.svc.na.remote
+
+    U->>ClusterDNS: DNS 查询
+    ClusterDNS->>SidecarDNS: 转发 *.svc.na.remote
+    SidecarDNS-->>U: 返回目标集群 Tailscale Pod IP
+
+    U->>Caddy: HTTP 请求 (k8sbc.default.svc.na.remote)
+    Caddy->>K8sAPI: 查询 Service ClusterIP
+    K8sAPI-->>Caddy: 返回 ClusterIP
+    Caddy->>U: 反向代理到 ClusterIP
+
+    Note over U,TS: 请求通过 Tailscale VPN 发送到目标集群
+```
+
+具体而言，发送端通过 SOCKS5_PROXY 环境变量获取代理的配置，对远程集群的所有请求都被解析到远程集群的反向代理上，每个集群的反向代理负责将入站流量转发到本集群的服务上。
+
 ## 增强模式
 
 增强模式期望实现一个 L3 的代理。
