@@ -95,7 +95,9 @@ class Kubectl:
         Returns:
             True if resource exists
         """
-        result = self._run(["get", resource], capture_output=True)
+        args = ["get", resource]
+        args.extend(self._get_base_args())
+        result = self._run(args, capture_output=True)
         return result.success
 
     def apply(self, file: str, dry_run: bool = False) -> KubectlResult:
