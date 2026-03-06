@@ -110,13 +110,13 @@ check_duplicate_installation() {
         "clusterrolebinding/tailscale"
         "configmap/tailscale-extra-args"
         "configmap/tailscale-cluster-name"
-        "secret/tailscale-auth"
+        "secret/tailscale"
         "deployment/tailscale"
     )
 
     for resource in "${resource_checks[@]}"; do
         verbose_log "Checking for resource: $resource"
-        if kubectl get $resource $USE_CONTEXT_FLAG &> /dev/null; then
+        if kubectl get $resource $USE_CONTEXT_FLAG --request-timeout=5s &> /dev/null; then
             existing_resources+=("$resource")
             duplicates_found=true
             verbose_log "Found existing resource: $resource"

@@ -28,6 +28,12 @@ spec:
       port: 10053
       targetPort: 10053
       protocol: UDP
+    - name: coredns-http
+      port: 8080
+      targetPort: 8080
+    - name: coredns-metrics
+      port: 8081
+      targetPort: 8081
   type: ClusterIP  # 仅集群内可访问
 ---
 apiVersion: apps/v1
@@ -117,6 +123,10 @@ spec:
             - containerPort: 10053
               name: dns-udp
               protocol: UDP
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: metrics
           volumeMounts:
             - name: tailscale-socket
               mountPath: /run/tailscale
