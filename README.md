@@ -112,6 +112,111 @@ sequenceDiagram
 
 具体而言，发送端通过 SOCKS5_PROXY 环境变量获取代理的配置，对远程集群的所有请求都被解析到远程集群的反向代理上，每个集群的反向代理负责将入站流量转发到本集群的服务上。
 
+### 服务发现
+
+服务发现架构
+
+```mermaid
+graph TB
+    subgraph "Local Cluster"
+        A[Client Pod] -->|DNS Query| B[CoreDNS]
+        B -->|Forward| C[Embedded DNS Server<br/>:10053]
+        C -->|Intercept| D[LoadBalancer]
+        D -->|Query| E[ServiceDiscovery]
+        
+        F[DNSConfigManager] -->|Sync Every 10s| G[LoadBalancer.RefreshServices]
+        G -->|Fetch| H[ServiceDiscovery.DiscoverServices]
+        
+        I[PeerDiscovery] -->|Get Peers| H
+        J[Tailscale Daemon] -->|Peer List| I
+    end
+    
+    subgraph "Remote Cluster 1"
+        K[Peer Node 1<br/>100.64.0.1] -->|HTTP :8080/svc| L[svc Handler]
+        L -->|Return| M[Service List<br/>myapp.default, api.prod, ...]
+    end
+    
+    subgraph "Remote Cluster 2"
+        N[Peer Node 2<br/>100.64.0.2] -->|HTTP :8080/svc| O[svc Handler]
+        O -->|Return| P[Service List<br/>myapp.default, db.staging, ...]
+    end
+    
+    E -->|HTTP GET| K
+    E -->|HTTP GET| N
+    E -->|Cache| Q[(Service Cache<br/>cluster1 → services<br/>cluster2 → services)]
+```
+
+服务发现流程
+
+```mermaid
+sequenceDiagram
+    participant DM as DNSConfigManager
+    participant SD as ServiceDiscovery
+    participant PD as PeerDiscovery
+    participant TS as Tailscale Daemon
+    participant RC1 as Remote Cluster 1
+    participant RC2 as Remote Cluster 2
+    participant Cache as Service Cache
+
+    DM->>SD: DiscoverServices(ctx)
+    SD->>PD: GetPeers(ctx)
+    PD->>TS: Status()
+    TS-->>PD: Peer List
+    PD-->>SD: []PeerInfo
+    
+    par Parallel Fetch from All Peers
+        SD->>RC1: HTTP GET http://100.64.0.1:8080/svc
+        RC1-->>SD: RemoteServiceList<br/>{timestamp, services, count}
+        SD->>Cache: Store cluster1 → services
+        
+        SD->>RC2: HTTP GET http://100.64.0.2:8080/svc
+        RC2-->>SD: RemoteServiceList<br/>{timestamp, services, count}
+        SD->>Cache: Store cluster2 → services
+    end
+    
+    SD-->>DM: Discovery Complete
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> Initializing: DNSConfigManager.Initialize()
+    Initializing --> Ready: Initial Discovery Complete
+    
+    Ready --> Refreshing: Sync() triggered (every 10s)
+    Refreshing --> Ready: Discovery Complete
+    
+    Ready --> QueryHandling: DNS Query Received
+    QueryHandling --> Ready: Response Sent
+    
+    QueryHandling --> CacheMiss: No endpoints found
+    CacheMiss --> Refreshing: Trigger Refresh
+    
+    Ready --> Error: Discovery Failed
+    Error --> Ready: Retry on Next Sync
+
+```
+
+`.clusterset.remote` 采用轮询原则进行分布在不同集群上的同名服务的负载均衡
+
+```mermaid
+graph TB
+    A["myapp.default.svc.clusterset.remote"] --> B{ParseClustersetDomain}
+    B -->|"parts[0]"| C["myapp (serviceName)"]
+    B -->|"parts[1]"| D["default (namespace)"]
+    B -->|"parts[2]"| E["svc (fixed)"]
+    B -->|"parts[3]"| F["clusterset (fixed)"]
+    B -->|"parts[4]"| G["remote (fixed)"]
+    
+    C --> H[Lookup in Cache]
+    D --> H
+    H --> I{Found?}
+    I -->|"Yes"| J[Return Endpoints]
+    I -->|"No"| K[NXDOMAIN]
+    
+    J --> L[Round-Robin Select]
+    L --> M[Return ClusterIP]
+```
+
 ## 增强模式
 
 增强模式期望实现一个 L3 的代理。

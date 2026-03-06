@@ -25,3 +25,10 @@ const (
 	svcIp          = "0.0.0.0"
 	svcAddr        = svcIp + svcPort
 )
+
+// Service discovery configuration constants
+const (
+	ServiceDiscoveryEndpoint  = "/svc"
+	ServiceDiscoveryPort      = 8080
+	ServiceDiscoveryTimeout   = 5 * time.Second
+)

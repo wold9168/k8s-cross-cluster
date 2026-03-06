@@ -15,22 +15,24 @@ import (
 
 // DNSConfigManager orchestrates the complete DNS configuration lifecycle
 type DNSConfigManager struct {
-	clientset         *kubernetes.Clientset
-	dnsServer         *dnsserver.DNSServer
-	metricsManager    *metrics.Manager
-	peerDiscovery     *PeerDiscovery
-	dnsRecordManager  *DNSRecordManager
-	coreDNSUpdater    *CoreDNSUpdater
-	config            DNSConfigManagerConfig
+	clientset        *kubernetes.Clientset
+	dnsServer        *dnsserver.DNSServer
+	metricsManager   *metrics.Manager
+	peerDiscovery    *PeerDiscovery
+	dnsRecordManager *DNSRecordManager
+	serviceDiscovery *ServiceDiscovery
+	loadBalancer     *LoadBalancer
+	coreDNSUpdater   *CoreDNSUpdater
+	config           DNSConfigManagerConfig
 }
 
 // DNSConfigManagerConfig holds configuration for DNSConfigManager
 type DNSConfigManagerConfig struct {
-	SyncInterval    time.Duration
-	SubDNSAddr      string
-	MetricsAddr     string
-	APIAddr         string
-	CoreDNSConfig   CoreDNSConfig
+	SyncInterval  time.Duration
+	SubDNSAddr    string
+	MetricsAddr   string
+	APIAddr       string
+	CoreDNSConfig CoreDNSConfig
 }
 
 // DefaultDNSConfigManagerConfig returns default configuration
@@ -41,9 +43,9 @@ func DefaultDNSConfigManagerConfig() DNSConfigManagerConfig {
 		MetricsAddr:  metricsAddr,
 		APIAddr:      svcAddr,
 		CoreDNSConfig: CoreDNSConfig{
-			Namespace:     CoreDNSNamespace,
-			ConfigMapName: CoreDNSConfigMapName,
-			ConfigKey:     CoreDNSConfigKey,
+			Namespace:      CoreDNSNamespace,
+			ConfigMapName:  CoreDNSConfigMapName,
+			ConfigKey:      CoreDNSConfigKey,
 			DeploymentName: CoreDNSDeploymentName,
 			ManagedSection: ManagedSection{
 				StartMarker: ManagedSectionStart,
@@ -56,20 +58,29 @@ func DefaultDNSConfigManagerConfig() DNSConfigManagerConfig {
 // NewDNSConfigManager creates a new DNSConfigManager
 func NewDNSConfigManager(clientset *kubernetes.Clientset, config DNSConfigManagerConfig) *DNSConfigManager {
 	dnsServer := dnsserver.NewDNSServer(config.SubDNSAddr)
-	
+
 	return &DNSConfigManager{
-		clientset:      clientset,
-		dnsServer:      dnsServer,
-		metricsManager: metrics.Init(),
-		peerDiscovery:  NewPeerDiscovery(),
+		clientset:        clientset,
+		dnsServer:        dnsServer,
+		metricsManager:   metrics.Init(),
+		peerDiscovery:    NewPeerDiscovery(),
 		dnsRecordManager: NewDNSRecordManager(dnsServer),
-		coreDNSUpdater: NewCoreDNSUpdater(clientset, config.CoreDNSConfig),
-		config:         config,
+		coreDNSUpdater:   NewCoreDNSUpdater(clientset, config.CoreDNSConfig),
+		config:           config,
 	}
 }
 
 // Initialize initializes all components
 func (dcm *DNSConfigManager) Initialize(ctx context.Context) error {
+	// Initialize service discovery
+	dcm.serviceDiscovery = NewServiceDiscovery(dcm.peerDiscovery)
+
+	// Initialize load balancer
+	dcm.loadBalancer = NewLoadBalancer(dcm.serviceDiscovery, dcm.dnsServer)
+
+	// Register load balancer query handler with DNS server
+	dcm.dnsServer.RegisterQueryHandler(dcm.loadBalancer.HandleQuery)
+
 	// Start DNS server
 	if err := dcm.dnsServer.Start(); err != nil {
 		return err
@@ -88,6 +99,11 @@ func (dcm *DNSConfigManager) Initialize(ctx context.Context) error {
 			klog.Errorf("API server failed: %v", err)
 		}
 	}()
+
+	// Initial service discovery
+	if err := dcm.loadBalancer.RefreshServices(ctx); err != nil {
+		klog.Errorf("Initial service discovery failed: %v", err)
+	}
 
 	klog.Info("DNSConfigManager initialized successfully")
 	return nil
@@ -123,6 +139,11 @@ func (dcm *DNSConfigManager) Sync(ctx context.Context) error {
 		return err
 	}
 
+	// Refresh service discovery from remote clusters
+	if err := dcm.loadBalancer.RefreshServices(ctx); err != nil {
+		klog.Errorf("Service discovery refresh failed: %v", err)
+	}
+
 	// Update DNS records from peers
 	if err := dcm.updateDNSRecords(); err != nil {
 		return err
@@ -130,8 +151,12 @@ func (dcm *DNSConfigManager) Sync(ctx context.Context) error {
 
 	// Update metrics
 	recordCount := dcm.dnsRecordManager.GetRecordCount()
+	serviceCount := dcm.loadBalancer.GetServiceCount()
+	clusterCount := dcm.loadBalancer.GetClusterCount()
+
 	dcm.metricsManager.UpdateDNSRecordCount(recordCount)
-	klog.Infof("Updated metrics: DNS record count = %d", recordCount)
+	klog.Infof("Updated metrics: DNS record count = %d, Services = %d, Clusters = %d",
+		recordCount, serviceCount, clusterCount)
 
 	return nil
 }
