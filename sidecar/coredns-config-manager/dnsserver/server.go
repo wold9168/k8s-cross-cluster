@@ -78,6 +78,31 @@ func (s *DNSServer) GetRecords(name string) []DNSRecord {
 	return nil
 }
 
+// GetRecordCount 获取 DNS 服务器中所有记录的总数
+func (s *DNSServer) GetRecordCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	total := 0
+	for _, records := range s.records {
+		total += len(records)
+	}
+	return total
+}
+
+// GetAllRecords 获取 DNS 服务器中的所有记录
+func (s *DNSServer) GetAllRecords() map[string][]DNSRecord {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// 创建副本以避免外部修改
+	result := make(map[string][]DNSRecord)
+	for name, records := range s.records {
+		result[name] = append([]DNSRecord{}, records...)
+	}
+	return result
+}
+
 // handleDNSRequest 处理DNS请求
 // buildAnswersForQuery 为域名和查询类型构建DNS资源记录
 func buildAnswersForQuery(domain string, qtype uint16, records []DNSRecord) []dns.RR {

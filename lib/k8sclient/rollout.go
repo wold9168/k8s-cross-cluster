@@ -7,13 +7,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 )
 
 // RolloutDeployment triggers a rollout of the specified deployment by adding a timestamp annotation
 func RolloutDeployment(clientset kubernetes.Interface, ctx context.Context, namespace, deploymentName string) error {
-	klog.Infof("Starting rollout for deployment %s in namespace %s", deploymentName, namespace)
-
 	// Get the deployment
 	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
 	if err != nil {
@@ -35,6 +32,5 @@ func RolloutDeployment(clientset kubernetes.Interface, ctx context.Context, name
 		return fmt.Errorf("failed to update deployment %s in namespace %s: %w", deploymentName, namespace, err)
 	}
 
-	klog.Infof("Successfully triggered rollout for deployment %s in namespace %s with annotation timestamp %s", deploymentName, namespace, timestamp)
 	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -22,10 +21,8 @@ func updateExistingConfigMap(clientset kubernetes.Interface, namespace *string, 
 
 	_, err := UpdateExistingConfigMap(clientset, namespace, existingCM)
 	if err != nil {
-		klog.Errorf("Failed to update ConfigMap %s: %v", configMapName, err)
 		return err
 	}
-	klog.Infof("Updated ConfigMap %s successfully", configMapName)
 	return nil
 }
 
@@ -42,10 +39,8 @@ func createConfigMap(clientset kubernetes.Interface, ns *string, configMapName s
 	}
 	_, err := CreateConfigMap(clientset, ns, newCM)
 	if err != nil {
-		klog.Errorf("Failed to create ConfigMap %s: %v", configMapName, err)
 		return err
 	}
-	klog.Infof("Created ConfigMap %s successfully", configMapName)
 	return nil
 }
 
@@ -59,7 +54,6 @@ func UpdateConfigMap(clientset kubernetes.Interface, namespaceProvided *string, 
 	} else if errors.IsNotFound(err) {
 		return createConfigMap(clientset, &ns, configMapName, key, data)
 	} else {
-		klog.Errorf("Failed to get ConfigMap %s: %v", configMapName, err)
 		return err
 	}
 }

@@ -7,7 +7,6 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 )
 
 // CheckConfigMapPermissions verifies ConfigMap permissions
@@ -73,6 +72,5 @@ func checkResourcePermission(clientset kubernetes.Interface, ctx context.Context
 		return fmt.Errorf("access denied for %s %s in namespace %s", verb, resource, namespace)
 	}
 
-	klog.V(4).Infof("Permission check passed: %s %s in namespace %s", verb, resource, namespace)
 	return nil
 }

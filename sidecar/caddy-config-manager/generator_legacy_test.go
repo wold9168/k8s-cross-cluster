@@ -1,4 +1,4 @@
-package test
+package main
 
 import (
 	"testing"
@@ -6,8 +6,6 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-
-	"github.com/wold9168/k8s-cross-cluster/sidecar/caddy-config-manager/pkg/generator"
 )
 
 func TestGenerateCrossClusterServiceDomains(t *testing.T) {
@@ -40,7 +38,7 @@ func TestGenerateCrossClusterServiceDomains(t *testing.T) {
 			},
 		},
 	)
-	remoteDomains, domainMapping := generator.GenerateCrossClusterServiceDomains(clientset, serviceList)
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, serviceList)
 
 	if len(remoteDomains) != 2 {
 		t.Errorf("Expected 2 remote domains, got: %d", len(remoteDomains))
@@ -84,7 +82,7 @@ func TestGenerateCrossClusterServiceDomains(t *testing.T) {
 
 func TestGenerateCrossClusterServiceDomains_Nil(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
-	remoteDomains, domainMapping := generator.GenerateCrossClusterServiceDomains(clientset, nil)
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, nil)
 
 	if len(remoteDomains) != 0 {
 		t.Errorf("Expected 0 remote domains, got: %d", len(remoteDomains))
@@ -101,7 +99,7 @@ func TestGenerateCrossClusterServiceDomains_Empty(t *testing.T) {
 	}
 
 	clientset := fake.NewSimpleClientset()
-	remoteDomains, domainMapping := generator.GenerateCrossClusterServiceDomains(clientset, serviceList)
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, serviceList)
 
 	if len(remoteDomains) != 0 {
 		t.Errorf("Expected 0 remote domains, got: %d", len(remoteDomains))
@@ -136,7 +134,7 @@ func TestGenerateCrossClusterServiceDomains_EmptyClusterName(t *testing.T) {
 			},
 		},
 	)
-	remoteDomains, domainMapping := generator.GenerateCrossClusterServiceDomains(clientset, serviceList)
+	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, serviceList)
 
 	if len(remoteDomains) != 1 {
 		t.Errorf("Expected 1 remote domain, got: %d", len(remoteDomains))
@@ -168,12 +166,14 @@ func TestGenerateCaddyConfig(t *testing.T) {
 		"service2.test-ns.svc.clusterwise.remote": "service2.test-ns.svc.cluster.local",
 	}
 
-	config := generator.GenerateCaddyConfig(remoteDomains, domainMapping)
+	config := GenerateCaddyConfig(remoteDomains, domainMapping)
 
 	expected := `service1.test-ns.svc.clusterwise.remote {
+    tls internal
     reverse_proxy service1.test-ns.svc.cluster.local
 }
 service2.test-ns.svc.clusterwise.remote {
+    tls internal
     reverse_proxy service2.test-ns.svc.cluster.local
 }
 `
@@ -187,7 +187,7 @@ func TestGenerateCaddyConfig_Empty(t *testing.T) {
 	remoteDomains := []string{}
 	domainMapping := map[string]string{}
 
-	config := generator.GenerateCaddyConfig(remoteDomains, domainMapping)
+	config := GenerateCaddyConfig(remoteDomains, domainMapping)
 
 	if config != "" {
 		t.Errorf("Expected empty config, got: %s", config)
@@ -200,7 +200,7 @@ func TestGenerateCaddyConfig_MissingMapping(t *testing.T) {
 	}
 	domainMapping := map[string]string{} // Empty mapping
 
-	config := generator.GenerateCaddyConfig(remoteDomains, domainMapping)
+	config := GenerateCaddyConfig(remoteDomains, domainMapping)
 
 	if config != "" {
 		t.Errorf("Expected empty config due to missing mapping, got: %s", config)

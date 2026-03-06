@@ -23,7 +23,7 @@ func TestUpdateConfigMap_Create(t *testing.T) {
 	}
 
 	// Verify ConfigMap was created
-	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
+	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get ConfigMap: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestUpdateConfigMap_Update(t *testing.T) {
 	}
 
 	// Verify ConfigMap was updated
-	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
+	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get ConfigMap: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestUpdateConfigMap_NilData(t *testing.T) {
 	}
 
 	// Verify ConfigMap was updated
-	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
+	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get ConfigMap: %v", err)
 	}

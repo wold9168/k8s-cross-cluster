@@ -79,7 +79,7 @@ func TestGetAllServicesInCurrentNamespace_Empty(t *testing.T) {
 func TestCheckServicePermissions(t *testing.T) {
 	namespace := "test-ns"
 	clientset := fake.NewSimpleClientset()
-	ctx := context.Background()
+	ctx := context.TODO()
 
 	// This test will fail because fake clientset does not support SelfSubjectAccessReview
 	// In production, use mock or integration tests

@@ -13,7 +13,7 @@ func main() {
 	client := tailscaledclient.New()
 
 	// Get the current status of the Tailscale daemon
-	ctx := context.Background()
+	ctx := context.TODO()
 	status, err := client.Status(ctx)
 	if err != nil {
 		log.Fatalf("Failed to get Tailscale status: %v", err)
