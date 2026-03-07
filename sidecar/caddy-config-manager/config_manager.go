@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -15,6 +18,8 @@ type ConfigManager struct {
 	configGenerator  *CaddyConfigGenerator
 	configPath       string
 	configDir        string
+	caddyAdminPort   string
+	reloadCaddy      bool
 
 	// 回调函数
 	onConfigUpdate func(serviceCount int)
@@ -41,6 +46,20 @@ func WithConfigDir(dir string) ConfigManagerOption {
 	}
 }
 
+// WithCaddyAdminPort sets the Caddy admin API port
+func WithCaddyAdminPort(port string) ConfigManagerOption {
+	return func(cm *ConfigManager) {
+		cm.caddyAdminPort = port
+	}
+}
+
+// WithReloadCaddy enables or disables automatic Caddy reload
+func WithReloadCaddy(enabled bool) ConfigManagerOption {
+	return func(cm *ConfigManager) {
+		cm.reloadCaddy = enabled
+	}
+}
+
 // NewConfigManager creates a new ConfigManager
 func NewConfigManager(clientset kubernetes.Interface, opts ...ConfigManagerOption) *ConfigManager {
 	cm := &ConfigManager{
@@ -48,6 +67,8 @@ func NewConfigManager(clientset kubernetes.Interface, opts ...ConfigManagerOptio
 		configGenerator:  NewCaddyConfigGenerator(),
 		configPath:       "/config/Caddyfile",
 		configDir:        "/config",
+		caddyAdminPort:   "2019",
+		reloadCaddy:      true,
 	}
 
 	for _, opt := range opts {
@@ -99,6 +120,37 @@ func (cm *ConfigManager) WriteConfig(config string) error {
 	}
 
 	klog.Infof("Successfully wrote Caddy config to '%s'", cm.configPath)
+
+	// Reload Caddy configuration
+	if cm.reloadCaddy {
+		if err := cm.reloadCaddyConfig(); err != nil {
+			klog.Errorf("Failed to reload Caddy config: %v", err)
+			// Don't return error, config file is written successfully
+		}
+	}
+
+	return nil
+}
+
+// reloadCaddyConfig triggers Caddy to reload its configuration
+func (cm *ConfigManager) reloadCaddyConfig() error {
+	reloadURL := fmt.Sprintf("http://localhost:%s/reload", cm.caddyAdminPort)
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	resp, err := client.Post(reloadURL, "application/json", nil)
+	if err != nil {
+		return fmt.Errorf("failed to send reload request to Caddy: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Caddy reload returned non-OK status: %d", resp.StatusCode)
+	}
+
+	klog.Infof("Successfully triggered Caddy config reload via API")
 	return nil
 }
 
