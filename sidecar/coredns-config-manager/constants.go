@@ -29,6 +29,6 @@ const (
 // Service discovery configuration constants
 const (
 	ServiceDiscoveryEndpoint  = "/svc"
-	ServiceDiscoveryPort      = 8080
+	ServiceDiscoveryPort      = 8081
 	ServiceDiscoveryTimeout   = 5 * time.Second
 )
