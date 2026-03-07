@@ -44,6 +44,50 @@ func TestCaddyConfigGenerator_Generate(t *testing.T) {
 	assert.Contains(t, config, "tls internal")
 }
 
+func TestCaddyConfigGenerator_GenerateClustersetDomain(t *testing.T) {
+	gen := NewCaddyConfigGenerator()
+
+	// Test clusterset domain format
+	remoteDomains := []string{
+		"svc1.ns.svc.clusterset.remote",
+		"svc2.ns.svc.clusterset.remote",
+	}
+	domainMapping := map[string]string{
+		"svc1.ns.svc.clusterset.remote": "svc1.ns.svc.cluster.local",
+		"svc2.ns.svc.clusterset.remote": "svc2.ns.svc.cluster.local",
+	}
+
+	config := gen.Generate(remoteDomains, domainMapping)
+
+	assert.Contains(t, config, "svc1.ns.svc.clusterset.remote")
+	assert.Contains(t, config, "reverse_proxy svc1.ns.svc.cluster.local")
+	assert.Contains(t, config, "svc2.ns.svc.clusterset.remote")
+	assert.Contains(t, config, "reverse_proxy svc2.ns.svc.cluster.local")
+	assert.Contains(t, config, "tls internal")
+}
+
+func TestCaddyConfigGenerator_Generate_MixedDomains(t *testing.T) {
+	gen := NewCaddyConfigGenerator()
+
+	// Test mixed domains: clusterset and cluster-specific
+	remoteDomains := []string{
+		"svc1.ns.svc.clusterset.remote",
+		"svc1.ns.svc.test-cluster.remote",
+	}
+	domainMapping := map[string]string{
+		"svc1.ns.svc.clusterset.remote":       "svc1.ns.svc.cluster.local",
+		"svc1.ns.svc.test-cluster.remote":     "svc1.ns.svc.cluster.local",
+	}
+
+	config := gen.Generate(remoteDomains, domainMapping)
+
+	assert.Contains(t, config, "svc1.ns.svc.clusterset.remote")
+	assert.Contains(t, config, "svc1.ns.svc.test-cluster.remote")
+	assert.Contains(t, config, "reverse_proxy svc1.ns.svc.cluster.local")
+	// Should have 2 domain blocks
+	assert.Equal(t, 2, strings.Count(config, "reverse_proxy"))
+}
+
 func TestCaddyConfigGenerator_Generate_Empty(t *testing.T) {
 	gen := NewCaddyConfigGenerator()
 
@@ -67,15 +111,15 @@ func TestCaddyConfigGenerator_GenerateFromResult(t *testing.T) {
 	gen := NewCaddyConfigGenerator()
 
 	result := DomainMappingResult{
-		RemoteDomains: []string{"svc1.ns.svc.cluster1.remote"},
+		RemoteDomains: []string{"svc1.ns.svc.clusterset.remote"},
 		DomainMapping: map[string]string{
-			"svc1.ns.svc.cluster1.remote": "svc1.ns.svc.cluster.local",
+			"svc1.ns.svc.clusterset.remote": "svc1.ns.svc.cluster.local",
 		},
 	}
 
 	config := gen.GenerateFromResult(result)
 
-	assert.Contains(t, config, "svc1.ns.svc.cluster1.remote")
+	assert.Contains(t, config, "svc1.ns.svc.clusterset.remote")
 	assert.Contains(t, config, "reverse_proxy svc1.ns.svc.cluster.local")
 }
 
