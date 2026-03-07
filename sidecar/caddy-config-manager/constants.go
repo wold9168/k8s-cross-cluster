@@ -15,4 +15,8 @@ const (
 	configDir  = "/config"
 
 	clusterNameConfigMap = "tailscale-cluster-name"
+
+	// Caddy admin API configuration
+	caddyAdminPort     = "2019"
+	caddyAdminPortKey = "CADDY_ADMIN_PORT"
 )

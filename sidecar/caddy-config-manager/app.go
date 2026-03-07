@@ -81,6 +81,7 @@ func (a *App) Initialize(clientset kubernetes.Interface, namespace string, opts 
 		clientset,
 		WithConfigPath(configPath),
 		WithConfigDir(configDir),
+		WithCaddyAdminPort(caddyAdminPort),
 	)
 
 	// 设置配置更新回调函数
