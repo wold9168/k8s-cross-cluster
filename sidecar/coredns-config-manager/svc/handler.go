@@ -17,13 +17,15 @@ import (
 type Handler struct {
 	dnsSrv    *dnsserver.DNSServer
 	clientset kubernetes.Interface
+	nodeName  string
 }
 
 // NewHandler 创建新的 HTTP handler
-func NewHandler(dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface) *Handler {
+func NewHandler(dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface, nodeName string) *Handler {
 	return &Handler{
 		dnsSrv:    dnsSrv,
 		clientset: clientset,
+		nodeName:  nodeName,
 	}
 }
 
@@ -72,10 +74,10 @@ func (h *Handler) handleSvc(w http.ResponseWriter, r *http.Request) {
 		}
 
 		key := fmt.Sprintf("%s.%s", svc.Name, svc.Namespace)
-		
-		// 构建域名：serviceName.namespace.svc.clusterset.remote
-		clustersetDomain := fmt.Sprintf("%s.%s.svc.clusterset.remote", svc.Name, svc.Namespace)
-		
+
+		// 构建域名：serviceName.namespace.svc.{nodeName}.remote
+		clustersetDomain := fmt.Sprintf("%s.%s.svc.%s.remote", svc.Name, svc.Namespace, h.nodeName)
+
 		services[key] = []map[string]interface{}{
 			{
 				"name":      svc.Name,
@@ -128,8 +130,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // StartServer 启动 HTTP API 服务器
-func StartServer(addr string, dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface) error {
-	handler := NewHandler(dnsSrv, clientset)
+func StartServer(addr string, dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface, nodeName string) error {
+	handler := NewHandler(dnsSrv, clientset, nodeName)
 
 	mux := http.NewServeMux()
 	mux.Handle("/allrecords", handler)
