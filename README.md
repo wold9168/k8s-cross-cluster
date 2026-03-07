@@ -69,11 +69,15 @@ flowchart TB
     subgraph 跨集群通信["跨集群通信流程"]
         C1["Client Pod"] -->|"DNS查询<br/>k8sbc.default.svc.na.remote"| C2["集群 DNS<br/>CoreDNS"]
         C2 -->|"匹配 *.svc.*.remote"| C3["Sidecar DNS<br/>:10053"]
-        C3 -->|"返回 Tailscale Pod IP"| C1
+        C3 -->|"从 PeerInfo 获取<br/>返回 Tailscale IP"| C1
         
         C1 -->|"HTTP 请求<br/>k8sbc.default.svc.na.remote"| C4["Caddy反向代理"]
         C4 -->|"转发到 ClusterIP"| C5["本地 Service"]
         C5 -->|"通过 Tailscale VPN"| C6["目标集群<br/>Tailscale Pod"]
+        
+        C1b["Client Pod"] -->|"DNS查询<br/>myapp.default.svc.clusterset.remote"| C2b["集群 DNS<br/>CoreDNS"]
+        C2b -->|"匹配 *.svc.clusterset.remote"| C3b["Sidecar DNS<br/>:10053"]
+        C3b -->|"负载均衡到任一集群<br/>返回 Tailscale IP"| C1b
     end
 
     A6 --> B1
@@ -92,6 +96,7 @@ sequenceDiagram
     participant U as 用户/应用
     participant ClusterDNS as 集群 DNS
     participant SidecarDNS as coredns-config-manager
+    participant PD as PeerDiscovery
     participant Caddy as caddy-config-manager
     participant TS as Tailscale
     participant K8sAPI as K8s API
@@ -100,7 +105,10 @@ sequenceDiagram
 
     U->>ClusterDNS: DNS 查询
     ClusterDNS->>SidecarDNS: 转发 *.svc.na.remote
-    SidecarDNS-->>U: 返回目标集群 Tailscale Pod IP
+    SidecarDNS->>PD: 获取 PeerInfo
+    PD->>TS: 获取对端节点信息
+    TS-->>PD: PeerInfo (Tailscale IPs)
+    SidecarDNS-->>U: 返回目标集群 Tailscale IP
 
     U->>Caddy: HTTP 请求 (k8sbc.default.svc.na.remote)
     Caddy->>K8sAPI: 查询 Service ClusterIP
@@ -111,6 +119,7 @@ sequenceDiagram
 ```
 
 具体而言，发送端通过 SOCKS5_PROXY 环境变量获取代理的配置，对远程集群的所有请求都被解析到远程集群的反向代理上，每个集群的反向代理负责将入站流量转发到本集群的服务上。
+
 
 ### 服务发现
 
@@ -125,56 +134,70 @@ graph TB
         D -->|Query| E[ServiceDiscovery]
         
         F[DNSConfigManager] -->|Sync Every 10s| G[LoadBalancer.RefreshServices]
-        G -->|Fetch| H[ServiceDiscovery.DiscoverServices]
+        G -->|Refresh Peer Cache| H[PeerDiscovery.GetPeers]
+        H -->|Get PeerInfo| I[Tailscale]
+        G -->|Fetch Services| E[ServiceDiscovery.DiscoverServices]
         
-        I[PeerDiscovery] -->|Get Peers| H
-        J[Tailscale Daemon] -->|Peer List| I
+        D -->|Get Tailscale IP| J[peerCache]
+        J -->|clusterName → PeerInfo| K[Tailscale IPs]
+        
+        E[ServiceDiscovery] -->|HTTP GET :8080/svc| L[Remote svc Handler]
+        E -->|Cache| M[(Service Cache<br/>cluster → services)]
     end
     
     subgraph "Remote Cluster 1"
-        K[Peer Node 1<br/>100.64.0.1] -->|HTTP :8080/svc| L[svc Handler]
-        L -->|Return| M[Service List<br/>myapp.default, api.prod, ...]
+        N[Peer Node 1<br/>na-tsgateway] -->|HTTP :8080/svc| O[svc Handler]
+        O -->|Return| P[Service List<br/>myapp.default, api.prod, ...]
+        N -->|PeerInfo| Q[Tailscale IPs<br/>100.64.0.1]
     end
     
     subgraph "Remote Cluster 2"
-        N[Peer Node 2<br/>100.64.0.2] -->|HTTP :8080/svc| O[svc Handler]
-        O -->|Return| P[Service List<br/>myapp.default, db.staging, ...]
+        R[Peer Node 2<br/>nb-tsgateway] -->|HTTP :8080/svc| S[svc Handler]
+        S -->|Return| T[Service List<br/>myapp.default, db.staging, ...]
+        R -->|PeerInfo| U[Tailscale IPs<br/>100.64.0.2]
     end
     
-    E -->|HTTP GET| K
     E -->|HTTP GET| N
-    E -->|Cache| Q[(Service Cache<br/>cluster1 → services<br/>cluster2 → services)]
-```
+    E -->|HTTP GET| R
+    H -->|Get Peers| N
+    H -->|Get Peers| R
 
 服务发现流程
 
 ```mermaid
 sequenceDiagram
     participant DM as DNSConfigManager
+    participant LB as LoadBalancer
     participant SD as ServiceDiscovery
     participant PD as PeerDiscovery
-    participant TS as Tailscale Daemon
+    participant TS as Tailscale
     participant RC1 as Remote Cluster 1
     participant RC2 as Remote Cluster 2
     participant Cache as Service Cache
 
-    DM->>SD: DiscoverServices(ctx)
-    SD->>PD: GetPeers(ctx)
+    DM->>LB: RefreshServices(ctx)
+    LB->>PD: GetPeers(ctx)
     PD->>TS: Status()
     TS-->>PD: Peer List
+    PD-->>LB: []PeerInfo
+    LB->>LB: Update peerCache (clusterName → TailscaleIPs)
+    
+    LB->>SD: DiscoverServices(ctx)
+    SD->>PD: GetPeers(ctx)
     PD-->>SD: []PeerInfo
     
     par Parallel Fetch from All Peers
-        SD->>RC1: HTTP GET http://100.64.0.1:8080/svc
+        SD->>RC1: HTTP GET http://peer1:8080/svc
         RC1-->>SD: RemoteServiceList<br/>{timestamp, services, count}
         SD->>Cache: Store cluster1 → services
         
-        SD->>RC2: HTTP GET http://100.64.0.2:8080/svc
+        SD->>RC2: HTTP GET http://peer2:8080/svc
         RC2-->>SD: RemoteServiceList<br/>{timestamp, services, count}
         SD->>Cache: Store cluster2 → services
     end
     
-    SD-->>DM: Discovery Complete
+    SD-->>LB: Discovery Complete
+    LB-->>DM: Refresh Complete
 ```
 
 ```mermaid
@@ -214,7 +237,8 @@ graph TB
     I -->|"No"| K[NXDOMAIN]
     
     J --> L[Round-Robin Select]
-    L --> M[Return ClusterIP]
+    L --> M[从 peerCache 获取 Tailscale IP]
+    M --> N[返回 Tailscale IP 而不是 ClusterIP]
 ```
 
 ## 增强模式
