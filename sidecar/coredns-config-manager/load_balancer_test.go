@@ -17,7 +17,7 @@ func TestLoadBalancer_New(t *testing.T) {
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
 
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	assert.NotNil(t, lb)
 	assert.Equal(t, sd, lb.serviceDiscovery)
@@ -30,7 +30,7 @@ func TestLoadBalancer_HandleQuery_NotClustersetDomain(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	answers, handled := lb.HandleQuery("myapp.default.svc.cluster.local", dns.TypeA)
 	assert.False(t, handled)
@@ -41,7 +41,7 @@ func TestLoadBalancer_HandleQuery_NoEndpoints(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	answers, handled := lb.HandleQuery("myapp.default.svc.clusterset.remote", dns.TypeA)
 	assert.False(t, handled)
@@ -52,7 +52,7 @@ func TestLoadBalancer_HandleQuery_SingleEndpoint(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// Populate service discovery cache
 	sd.serviceCache = map[string]*RemoteServiceList{
@@ -76,7 +76,7 @@ func TestLoadBalancer_HandleQuery_MultipleEndpoints_RoundRobin(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// Populate service discovery cache with multiple endpoints
 	sd.serviceCache = map[string]*RemoteServiceList{
@@ -129,7 +129,7 @@ func TestLoadBalancer_HandleQuery_AAAA(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// Populate with IPv6 address
 	sd.serviceCache = map[string]*RemoteServiceList{
@@ -153,7 +153,7 @@ func TestLoadBalancer_HandleQuery_TypeMismatch(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// Populate with IPv4 address
 	sd.serviceCache = map[string]*RemoteServiceList{
@@ -177,7 +177,7 @@ func TestLoadBalancer_HandleQuery_ANY(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// Populate with IPv4 address
 	sd.serviceCache = map[string]*RemoteServiceList{
@@ -201,7 +201,7 @@ func TestLoadBalancer_HandleQuery_InvalidDomain(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// Populate cache
 	sd.serviceCache = map[string]*RemoteServiceList{
@@ -225,7 +225,7 @@ func TestLoadBalancer_selectEndpoint_Single(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	endpoints := []ServiceEndpoint{
 		{ClusterName: "cluster1", IP: netip.MustParseAddr("10.96.1.10")},
@@ -240,7 +240,7 @@ func TestLoadBalancer_selectEndpoint_Multiple(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	endpoints := []ServiceEndpoint{
 		{ClusterName: "cluster1", IP: netip.MustParseAddr("10.96.1.10")},
@@ -264,7 +264,7 @@ func TestLoadBalancer_selectEndpoint_Empty(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	endpoints := []ServiceEndpoint{}
 	result := lb.selectEndpoint("myapp", "default", endpoints)
@@ -275,7 +275,7 @@ func TestLoadBalancer_getCounter_New(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	counter := lb.getCounter("myapp.default")
 	assert.NotNil(t, counter)
@@ -286,7 +286,7 @@ func TestLoadBalancer_getCounter_Existing(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// Get counter first time
 	counter1 := lb.getCounter("myapp.default")
@@ -302,7 +302,7 @@ func TestLoadBalancer_getCounter_Concurrent(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
@@ -320,7 +320,7 @@ func TestLoadBalancer_buildAnswer_A(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	endpoint := ServiceEndpoint{
 		ClusterName: "cluster1",
@@ -336,7 +336,7 @@ func TestLoadBalancer_buildAnswer_AAAA(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	endpoint := ServiceEndpoint{
 		ClusterName: "cluster1",
@@ -352,7 +352,7 @@ func TestLoadBalancer_buildAnswer_TypeMismatch(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// IPv4 endpoint
 	endpoint := ServiceEndpoint{
@@ -371,7 +371,7 @@ func TestLoadBalancer_RefreshServices(t *testing.T) {
 	}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	err := lb.RefreshServices(context.Background())
 	assert.NoError(t, err)
@@ -381,7 +381,7 @@ func TestLoadBalancer_GetServiceCount(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	sd.serviceCache = map[string]*RemoteServiceList{
 		"cluster1": {Count: 5},
@@ -396,7 +396,7 @@ func TestLoadBalancer_GetClusterCount(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	sd.serviceCache = map[string]*RemoteServiceList{
 		"cluster1": {Count: 1},
@@ -412,7 +412,7 @@ func TestLoadBalancer_IsServiceAvailable(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// Service exists
 	sd.serviceCache = map[string]*RemoteServiceList{
@@ -433,7 +433,7 @@ func TestLoadBalancer_GetAvailableServices(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	sd.serviceCache = map[string]*RemoteServiceList{
 		"cluster1": {
@@ -461,7 +461,7 @@ func TestLoadBalancer_GetEndpointCountForService(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	sd.serviceCache = map[string]*RemoteServiceList{
 		"cluster1": {
@@ -489,7 +489,7 @@ func TestLoadBalancer_ResolveService(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	sd.serviceCache = map[string]*RemoteServiceList{
 		"cluster1": {
@@ -511,7 +511,7 @@ func TestLoadBalancer_ResolveService_NotFound(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	ip, cluster, ok := lb.ResolveService("myapp", "default", dns.TypeA)
 	assert.False(t, ok)

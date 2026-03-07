@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"strings"
 	"sync"
@@ -16,16 +17,20 @@ import (
 type LoadBalancer struct {
 	serviceDiscovery *ServiceDiscovery
 	dnsServer        *dnsserver.DNSServer
+	peerLister       PeerLister
+	peerCache        map[string]PeerInfo // clusterName -> PeerInfo
 	// Round-robin counter per service key (serviceName.namespace)
 	rrCounters map[string]*uint64
 	rrMu       sync.RWMutex
 }
 
 // NewLoadBalancer creates a new LoadBalancer instance
-func NewLoadBalancer(serviceDiscovery *ServiceDiscovery, dnsServer *dnsserver.DNSServer) *LoadBalancer {
+func NewLoadBalancer(serviceDiscovery *ServiceDiscovery, dnsServer *dnsserver.DNSServer, peerLister PeerLister) *LoadBalancer {
 	return &LoadBalancer{
 		serviceDiscovery: serviceDiscovery,
 		dnsServer:        dnsServer,
+		peerLister:       peerLister,
+		peerCache:        make(map[string]PeerInfo),
 		rrCounters:       make(map[string]*uint64),
 	}
 }
@@ -116,13 +121,21 @@ func (lb *LoadBalancer) getCounter(serviceKey string) *uint64 {
 }
 
 // buildAnswer builds DNS response records for the selected endpoint
+// Uses the Tailscale IP of the remote cluster instead of the endpoint's direct IP
 func (lb *LoadBalancer) buildAnswer(domain string, qtype uint16, endpoint ServiceEndpoint) []dns.RR {
 	var answers []dns.RR
 
+	// Get Tailscale IP for the cluster where this endpoint resides
+	tailscaleIP := lb.GetPeerTailscaleIP(endpoint.ClusterName)
+	if tailscaleIP == "" {
+		klog.Warningf("No Tailscale IP found for cluster %s, falling back to endpoint IP", endpoint.ClusterName)
+		tailscaleIP = endpoint.IP.String()
+	}
+
 	switch qtype {
 	case dns.TypeA:
-		if endpoint.IP.Is4() {
-			rr, err := dns.NewRR(domain + " 60 IN A " + endpoint.IP.String())
+		if endpoint.IP.Is4() || tailscaleIP != "" {
+			rr, err := dns.NewRR(domain + " 60 IN A " + tailscaleIP)
 			if err != nil {
 				klog.Errorf("Failed to create A record: %v", err)
 				return nil
@@ -130,8 +143,8 @@ func (lb *LoadBalancer) buildAnswer(domain string, qtype uint16, endpoint Servic
 			answers = append(answers, rr)
 		}
 	case dns.TypeAAAA:
-		if endpoint.IP.Is6() {
-			rr, err := dns.NewRR(domain + " 60 IN AAAA " + endpoint.IP.String())
+		if endpoint.IP.Is6() || tailscaleIP != "" {
+			rr, err := dns.NewRR(domain + " 60 IN AAAA " + tailscaleIP)
 			if err != nil {
 				klog.Errorf("Failed to create AAAA record: %v", err)
 				return nil
@@ -140,17 +153,10 @@ func (lb *LoadBalancer) buildAnswer(domain string, qtype uint16, endpoint Servic
 		}
 	case dns.TypeANY:
 		// For ANY queries, return both A and AAAA if available
-		if endpoint.IP.Is4() {
-			rr, err := dns.NewRR(domain + " 60 IN A " + endpoint.IP.String())
+		if tailscaleIP != "" {
+			rr, err := dns.NewRR(domain + " 60 IN A " + tailscaleIP)
 			if err != nil {
 				klog.Errorf("Failed to create A record: %v", err)
-			} else {
-				answers = append(answers, rr)
-			}
-		} else if endpoint.IP.Is6() {
-			rr, err := dns.NewRR(domain + " 60 IN AAAA " + endpoint.IP.String())
-			if err != nil {
-				klog.Errorf("Failed to create AAAA record: %v", err)
 			} else {
 				answers = append(answers, rr)
 			}
@@ -162,7 +168,75 @@ func (lb *LoadBalancer) buildAnswer(domain string, qtype uint16, endpoint Servic
 
 // RefreshServices triggers service discovery to refresh the cache
 func (lb *LoadBalancer) RefreshServices(ctx context.Context) error {
+	// Refresh peer cache first
+	if err := lb.refreshPeerCache(ctx); err != nil {
+		klog.Warningf("Failed to refresh peer cache: %v", err)
+	}
+
 	return lb.serviceDiscovery.DiscoverServices(ctx)
+}
+
+// refreshPeerCache updates the peer cache with latest Tailscale peer information
+func (lb *LoadBalancer) refreshPeerCache(ctx context.Context) error {
+	if lb.peerLister == nil {
+		return nil
+	}
+
+	peers, err := lb.peerLister.GetPeers(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get peers: %w", err)
+	}
+
+	// Also get self peer
+	self, err := lb.peerLister.GetSelf(ctx)
+	if err != nil {
+		klog.V(4).Infof("Failed to get self peer: %v", err)
+	} else {
+		lb.updatePeerCache(self)
+	}
+
+	// Update cache with all peers
+	for _, peer := range peers {
+		lb.updatePeerCache(peer)
+	}
+
+	klog.Infof("Peer cache refreshed: %d peers", len(lb.peerCache))
+	return nil
+}
+
+// updatePeerCache updates the peer cache with a single peer's information
+func (lb *LoadBalancer) updatePeerCache(peer PeerInfo) {
+	clusterName, err := extractGatewayHostName(peer.HostName)
+	if err != nil {
+		// If not a gateway, use hostname as-is
+		clusterName = peer.HostName
+	}
+
+	lb.peerCache[clusterName] = peer
+	klog.V(4).Infof("Updated peer cache: cluster %s -> %v", clusterName, peer.TailscaleIPs)
+}
+
+// GetPeerTailscaleIP returns a Tailscale IP for the given cluster name
+// Returns the first available IP (preferring IPv4)
+func (lb *LoadBalancer) GetPeerTailscaleIP(clusterName string) string {
+	peer, ok := lb.peerCache[clusterName]
+	if !ok {
+		return ""
+	}
+
+	// Prefer IPv4 over IPv6
+	for _, ip := range peer.TailscaleIPs {
+		if strings.Contains(ip, ".") {
+			return ip
+		}
+	}
+
+	// Return first available IP if no IPv4 found
+	if len(peer.TailscaleIPs) > 0 {
+		return peer.TailscaleIPs[0]
+	}
+
+	return ""
 }
 
 // GetServiceCount returns the number of unique services discovered across all clusters

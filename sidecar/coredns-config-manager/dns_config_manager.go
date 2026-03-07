@@ -76,7 +76,7 @@ func (dcm *DNSConfigManager) Initialize(ctx context.Context) error {
 	dcm.serviceDiscovery = NewServiceDiscovery(dcm.peerDiscovery)
 
 	// Initialize load balancer
-	dcm.loadBalancer = NewLoadBalancer(dcm.serviceDiscovery, dcm.dnsServer)
+	dcm.loadBalancer = NewLoadBalancer(dcm.serviceDiscovery, dcm.dnsServer, dcm.peerDiscovery)
 
 	// Register load balancer query handler with DNS server
 	dcm.dnsServer.RegisterQueryHandler(dcm.loadBalancer.HandleQuery)
@@ -93,9 +93,25 @@ func (dcm *DNSConfigManager) Initialize(ctx context.Context) error {
 		}
 	}()
 
+	// Get node name for API server
+	nodeName := ""
+	pd := NewPeerDiscovery()
+	self, err := pd.GetSelf(ctx)
+	if err != nil {
+		klog.Warningf("Failed to get self peer info for API server: %v", err)
+	} else {
+		nodeName, err = extractGatewayHostName(self.HostName)
+		if err != nil {
+			klog.Warningf("Failed to extract node name from self hostname %q: %v", self.HostName, err)
+			nodeName = ""
+		} else {
+			klog.Infof("Using node name %q for API server", nodeName)
+		}
+	}
+
 	// Start API server
 	go func() {
-		if err := svc.StartServer(dcm.config.APIAddr, dcm.dnsServer, dcm.clientset); err != nil {
+		if err := svc.StartServer(dcm.config.APIAddr, dcm.dnsServer, dcm.clientset, nodeName); err != nil {
 			klog.Errorf("API server failed: %v", err)
 		}
 	}()
