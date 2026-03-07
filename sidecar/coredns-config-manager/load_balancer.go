@@ -106,7 +106,8 @@ func (lb *LoadBalancer) getCounter(serviceKey string) *uint64 {
 		return counter
 	}
 
-	// Create new counter
+	// Create new counter using new() to allocate on heap
+	// Need to acquire write lock to prevent race condition
 	lb.rrMu.Lock()
 	defer lb.rrMu.Unlock()
 
@@ -115,9 +116,9 @@ func (lb *LoadBalancer) getCounter(serviceKey string) *uint64 {
 		return counter
 	}
 
-	var newCounter uint64
-	lb.rrCounters[serviceKey] = &newCounter
-	return &newCounter
+	counter = new(uint64)
+	lb.rrCounters[serviceKey] = counter
+	return counter
 }
 
 // buildAnswer builds DNS response records for the selected endpoint
