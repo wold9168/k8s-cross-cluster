@@ -1,3 +1,17 @@
+// @title           CoreDNS Config Manager API
+// @version         1.0
+// @description     API for managing DNS configuration and service discovery in Kubernetes clusters
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    https://github.com/wold9168/k8s-cross-cluster
+// @contact.email  support@example.com
+
+// @host      localhost:8081
+// @BasePath  /
+
+// @securityDefinitions.basic BasicAuth
+
 package svc
 
 import (
@@ -44,7 +58,13 @@ func NewHandler(dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface, nod
 	}
 }
 
-// handleAllRecords 处理 /allrecords 端点，返回所有 DNS 记录
+// @Summary Get all DNS records
+// @Description Returns all DNS records managed by the CoreDNS config manager
+// @Tags dns
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "DNS records response"
+// @Router /allrecords [get]
 func (h *Handler) handleAllRecords(w http.ResponseWriter, r *http.Request) {
 	// 获取所有 DNS 记录
 	records := h.dnsSrv.GetAllRecords()
@@ -70,7 +90,13 @@ func (h *Handler) handleAllRecords(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleLBStatus 处理 /lbstatus 端点，返回当前负载均衡器正在维护的 serviceKey 的 EndPoint 数据和下一个 idx 值
+// @Summary Get load balancer status
+// @Description Returns the current status of the load balancer, including service keys, endpoints, and the next index value
+// @Tags loadbalancer
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Load balancer status response"
+// @Router /lbstatus [get]
 func (h *Handler) handleLBStatus(w http.ResponseWriter, r *http.Request) {
 	if h.lbStatus == nil {
 		http.Error(w, "Load balancer not available", http.StatusServiceUnavailable)
@@ -101,7 +127,13 @@ func (h *Handler) handleLBStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleSvc 处理 /svc 端点，返回当前集群的所有服务（clusterset 格式）
+// @Summary Get all services in clusterset format
+// @Description Returns all Kubernetes services in the current namespace in clusterset format with DNS domain mappings
+// @Tags services
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Services response"
+// @Router /svc [get]
 func (h *Handler) handleSvc(w http.ResponseWriter, r *http.Request) {
 	// 获取当前命名空间的所有服务
 	serviceList, err := k8sclient.GetAllServicesInCurrentNamespace(h.clientset, nil)
@@ -177,6 +209,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary Health check
+// @Description Returns OK if the service is running
+// @Tags health
+// @Accept json
+// @Produce json
+// @Success 200 {string} string "OK"
+// @Router /healthz [get]
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
 // StartServer 启动 HTTP API 服务器
 func StartServer(addr string, dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface, nodeName string, lbStatus LoadBalancerStatusProvider) error {
 	handler := NewHandler(dnsSrv, clientset, nodeName, lbStatus)
@@ -187,10 +231,7 @@ func StartServer(addr string, dnsSrv *dnsserver.DNSServer, clientset kubernetes.
 	mux.Handle("/lbstatus", handler)
 
 	// 添加健康检查端点
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
+	mux.HandleFunc("/healthz", healthzHandler)
 
 	server := &http.Server{
 		Addr:    addr,

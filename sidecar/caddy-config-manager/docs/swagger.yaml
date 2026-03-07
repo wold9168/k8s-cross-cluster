@@ -1,0 +1,80 @@
+basePath: /
+host: localhost:8081
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+    url: https://github.com/wold9168/k8s-cross-cluster
+  description: API for managing Caddy configuration and service discovery in Kubernetes
+    clusters
+  termsOfService: http://swagger.io/terms/
+  title: Caddy Config Manager API
+  version: "1.0"
+paths:
+  /config:
+    get:
+      consumes:
+      - application/json
+      description: Returns the current generated Caddy configuration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Configuration response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get current Caddy configuration
+      tags:
+      - config
+  /domains:
+    get:
+      consumes:
+      - application/json
+      description: Returns domain mappings between remote and local domains
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Domain mapping response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get domain mappings
+      tags:
+      - domains
+  /healthz:
+    get:
+      consumes:
+      - application/json
+      description: Returns OK if the service is running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Health check
+      tags:
+      - health
+  /services:
+    get:
+      consumes:
+      - application/json
+      description: Returns all Kubernetes services in the current namespace
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Services response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all services
+      tags:
+      - services
+securityDefinitions:
+  BasicAuth:
+    type: basic
+swagger: "2.0"
