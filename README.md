@@ -219,7 +219,7 @@ stateDiagram-v2
 
 ```
 
-`.clusterset.remote` 采用轮询原则进行分布在不同集群上的同名服务的负载均衡
+`.clusterset.remote` 采用轮询原则进行分布在不同集群上的同名服务的负载均衡。轮换范围不包括当前集群的服务。
 
 ```mermaid
 graph TB
