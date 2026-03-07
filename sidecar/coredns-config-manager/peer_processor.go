@@ -4,6 +4,7 @@ import (
 	"context"
 
 	dnsserver "github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/dnsserver"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
@@ -38,9 +39,9 @@ func extractGatewayHostNameFromPeerInfo(peer PeerInfo) (string, error) {
 
 // UpdateDNSRecordsForGateways updates DNS records for gateway peers
 // Deprecated: Use DNSRecordManager.UpdateRecordsForGateways instead
-func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer) error {
+func UpdateDNSRecordsForGateways(dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface) error {
 	pd := NewPeerDiscovery()
-	drm := NewDNSRecordManager(dnsSrv)
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 	ctx := context.Background()
 
 	peers, err := pd.GetPeers(ctx)

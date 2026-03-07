@@ -6,18 +6,23 @@ import (
 
 	"github.com/miekg/dns"
 	dnsserver "github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/dnsserver"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
+	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
 )
 
 // DNSRecordManager manages DNS records in the embedded DNS server
 type DNSRecordManager struct {
 	dnsServer *dnsserver.DNSServer
+	clientset kubernetes.Interface
 }
 
 // NewDNSRecordManager creates a new DNSRecordManager
-func NewDNSRecordManager(dnsServer *dnsserver.DNSServer) *DNSRecordManager {
+func NewDNSRecordManager(dnsServer *dnsserver.DNSServer, clientset kubernetes.Interface) *DNSRecordManager {
 	return &DNSRecordManager{
 		dnsServer: dnsServer,
+		clientset: clientset,
 	}
 }
 
@@ -45,8 +50,15 @@ func (drm *DNSRecordManager) UpdateRecordForSelf(self PeerInfo) error {
 		return fmt.Errorf("cannot extract node name from self: %w", err)
 	}
 
+	// Get current Pod IP instead of using Tailscale IPs
+	podIP, err := k8sclient.GetCurrentPodIP(drm.clientset)
+	if err != nil {
+		return fmt.Errorf("failed to get current Pod IP: %w", err)
+	}
+	klog.Infof("Using Pod IP %s for self node %s instead of Tailscale IPs", podIP, nodeName)
+
 	recordName := fmt.Sprintf("*.*.svc.%s.remote.", nodeName)
-	return drm.addOrUpdateRecords(recordName, nodeName, self.TailscaleIPs)
+	return drm.addOrUpdateRecords(recordName, nodeName, []string{podIP})
 }
 
 // addOrUpdateRecords adds or updates DNS records for a given record name
