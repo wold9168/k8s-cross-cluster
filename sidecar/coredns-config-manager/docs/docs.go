@@ -9,12 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "url": "https://github.com/wold9168/k8s-cross-cluster",
-            "email": "support@example.com"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -69,7 +64,7 @@ const docTemplate = `{
         },
         "/lbstatus": {
             "get": {
-                "description": "Returns the current status of the load balancer, including service keys, endpoints, and the next index value",
+                "description": "Returns the current status of the load balancer, including all the service keys, endpoints, and the next index value",
                 "consumes": [
                     "application/json"
                 ],
@@ -83,6 +78,30 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Load balancer status response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/rotate": {
+            "post": {
+                "description": "Manually triggers round-robin rotation for all discovered services",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loadbalancer"
+                ],
+                "summary": "Trigger load balancer rotation",
+                "responses": {
+                    "200": {
+                        "description": "Rotation results",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -115,22 +134,17 @@ const docTemplate = `{
                 }
             }
         }
-    },
-    "securityDefinitions": {
-        "BasicAuth": {
-            "type": "basic"
-        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
-	Host:             "localhost:8081",
-	BasePath:         "/",
+	Version:          "",
+	Host:             "",
+	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "CoreDNS Config Manager API",
-	Description:      "API for managing DNS configuration and service discovery in Kubernetes clusters",
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

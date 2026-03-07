@@ -1,15 +1,5 @@
-basePath: /
-host: localhost:8081
 info:
-  contact:
-    email: support@example.com
-    name: API Support
-    url: https://github.com/wold9168/k8s-cross-cluster
-  description: API for managing DNS configuration and service discovery in Kubernetes
-    clusters
-  termsOfService: http://swagger.io/terms/
-  title: CoreDNS Config Manager API
-  version: "1.0"
+  contact: {}
 paths:
   /allrecords:
     get:
@@ -46,8 +36,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Returns the current status of the load balancer, including service
-        keys, endpoints, and the next index value
+      description: Returns the current status of the load balancer, including all
+        the service keys, endpoints, and the next index value
       produces:
       - application/json
       responses:
@@ -57,6 +47,22 @@ paths:
             additionalProperties: true
             type: object
       summary: Get load balancer status
+      tags:
+      - loadbalancer
+  /rotate:
+    post:
+      consumes:
+      - application/json
+      description: Manually triggers round-robin rotation for all discovered services
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rotation results
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Trigger load balancer rotation
       tags:
       - loadbalancer
   /svc:
@@ -76,7 +82,4 @@ paths:
       summary: Get all services in clusterset format
       tags:
       - services
-securityDefinitions:
-  BasicAuth:
-    type: basic
 swagger: "2.0"
