@@ -10,7 +10,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// DNSRecord 表示一条DNS记录
+// DNSRecord 表示一条 DNS 记录
 type DNSRecord struct {
 	Name  string
 	Type  uint16
@@ -18,15 +18,20 @@ type DNSRecord struct {
 	Value string
 }
 
-// DNSServer DNS服务器
+// QueryHandler is a callback function for handling DNS queries before the default logic
+// Returns (answers, handled) where handled=true means the query was fully handled
+type QueryHandler func(domain string, qtype uint16) ([]dns.RR, bool)
+
+// DNSServer DNS 服务器
 type DNSServer struct {
-	server  *dns.Server
-	records map[string][]DNSRecord // 键: 域名
-	mu      sync.RWMutex
-	addr    string
+	server        *dns.Server
+	records       map[string][]DNSRecord // 键：域名
+	mu            sync.RWMutex
+	addr          string
+	queryHandlers []QueryHandler
 }
 
-// NewDNSServer 创建一个新的DNS服务器实例
+// NewDNSServer 创建一个新的 DNS 服务器实例
 func NewDNSServer(addr string) *DNSServer {
 	return &DNSServer{
 		records: make(map[string][]DNSRecord),
@@ -34,7 +39,7 @@ func NewDNSServer(addr string) *DNSServer {
 	}
 }
 
-// AddRecord 添加DNS记录
+// AddRecord 添加 DNS 记录
 func (s *DNSServer) AddRecord(name string, recordType uint16, ttl uint32, value string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -103,8 +108,16 @@ func (s *DNSServer) GetAllRecords() map[string][]DNSRecord {
 	return result
 }
 
-// handleDNSRequest 处理DNS请求
-// buildAnswersForQuery 为域名和查询类型构建DNS资源记录
+// RegisterQueryHandler registers a query handler callback
+func (s *DNSServer) RegisterQueryHandler(handler QueryHandler) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.queryHandlers = append(s.queryHandlers, handler)
+	klog.Info("Registered DNS query handler")
+}
+
+// handleDNSRequest 处理 DNS 请求
+// buildAnswersForQuery 为域名和查询类型构建 DNS 资源记录
 func buildAnswersForQuery(domain string, qtype uint16, records []DNSRecord) []dns.RR {
 	var answers []dns.RR
 	for _, record := range records {
@@ -121,7 +134,7 @@ func buildAnswersForQuery(domain string, qtype uint16, records []DNSRecord) []dn
 }
 
 // matchWildcardPattern 检查域名是否匹配通配符模式
-// 例如: *.*.foo.com 匹配 a.b.foo.com, a.*.foo.com 匹配 a.b.foo.com
+// 例如：*.*.foo.com 匹配 a.b.foo.com, a.*.foo.com 匹配 a.b.foo.com
 // 通配符 * 只能匹配单级域名部分
 func matchWildcardPattern(domain, pattern string) bool {
 	// 标准化：去除根域点号
@@ -153,7 +166,7 @@ func matchWildcardPattern(domain, pattern string) bool {
 }
 
 // findWildcardMatchingRecords 查找所有匹配指定域名的通配符记录
-// 返回所有匹配的记录，key为匹配的通配符模式
+// 返回所有匹配的记录，key 为匹配的通配符模式
 func findWildcardMatchingRecords(domain string, records map[string][]DNSRecord) map[string][]DNSRecord {
 	matches := make(map[string][]DNSRecord)
 
@@ -180,7 +193,9 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	msg.Authoritative = true
 
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	handlers := s.queryHandlers
+	records := s.records
+	s.mu.RUnlock()
 
 	for _, question := range r.Question {
 		domain := question.Name
@@ -188,19 +203,34 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 		klog.V(4).Infof("DNS query: %s type %d from %s", domain, qtype, w.RemoteAddr())
 
-		if records, ok := s.records[domain]; ok {
-			// 精确匹配
-			answers := buildAnswersForQuery(domain, qtype, records)
-			msg.Answer = append(msg.Answer, answers...)
-		} else {
-			// 尝试通配符匹配
-			klog.Infof("handleDNSRequest: Trying wildcard matching for %s", domain)
-			matches := findWildcardMatchingRecords(domain, s.records)
+		// Try query handlers first (e.g., load balancer)
+		handled := false
+		for _, handler := range handlers {
+			if answers, ok := handler(domain, qtype); ok {
+				if len(answers) > 0 {
+					msg.Answer = append(msg.Answer, answers...)
+					handled = true
+					klog.V(4).Infof("Query handled by custom handler: %s", domain)
+					break
+				}
+			}
+		}
 
-			for _, records := range matches {
-				answers := buildAnswersForQuery(domain, qtype, records)
+		if !handled {
+			// Try exact match
+			if recs, ok := records[domain]; ok {
+				answers := buildAnswersForQuery(domain, qtype, recs)
 				msg.Answer = append(msg.Answer, answers...)
-				klog.V(4).Infof("DNS wildcard matched: %s -> records from wildcard pattern", domain)
+			} else {
+				// Try wildcard matching
+				klog.V(4).Infof("Trying wildcard matching for %s", domain)
+				matches := findWildcardMatchingRecords(domain, records)
+
+				for _, recs := range matches {
+					answers := buildAnswersForQuery(domain, qtype, recs)
+					msg.Answer = append(msg.Answer, answers...)
+					klog.V(4).Infof("DNS wildcard matched: %s -> records from wildcard pattern", domain)
+				}
 			}
 		}
 	}
@@ -210,7 +240,7 @@ func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	}
 }
 
-// Start 启动DNS服务器
+// Start 启动 DNS 服务器
 func (s *DNSServer) Start() error {
 	mux := dns.NewServeMux()
 	mux.HandleFunc(".", s.handleDNSRequest)
@@ -241,7 +271,7 @@ func (s *DNSServer) Start() error {
 	return fmt.Errorf("DNS server failed to start on %s", s.addr)
 }
 
-// Stop 停止DNS服务器
+// Stop 停止 DNS 服务器
 func (s *DNSServer) Stop() error {
 	if s.server != nil {
 		klog.Infof("Stopping DNS server on %s", s.addr)
@@ -250,7 +280,7 @@ func (s *DNSServer) Stop() error {
 	return nil
 }
 
-// GetAddr 获取DNS服务器监听地址
+// GetAddr 获取 DNS 服务器监听地址
 func (s *DNSServer) GetAddr() string {
 	return s.addr
 }

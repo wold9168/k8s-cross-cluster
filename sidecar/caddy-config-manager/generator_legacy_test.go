@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -40,44 +41,22 @@ func TestGenerateCrossClusterServiceDomains(t *testing.T) {
 	)
 	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, serviceList)
 
-	if len(remoteDomains) != 2 {
-		t.Errorf("Expected 2 remote domains, got: %d", len(remoteDomains))
+	// Now generates 2 domain types per service: clusterset and cluster-specific
+	if len(remoteDomains) != 4 {
+		t.Errorf("Expected 4 remote domains, got: %d", len(remoteDomains))
 	}
 
-	if len(domainMapping) != 2 {
-		t.Errorf("Expected 2 domain mappings, got: %d", len(domainMapping))
+	if len(domainMapping) != 4 {
+		t.Errorf("Expected 4 domain mappings, got: %d", len(domainMapping))
 	}
 
-	expectedRemote1 := "service1.test-ns.svc.foo.remote"
-	expectedLocal1 := "service1.test-ns.svc.cluster.local"
-	expectedRemote2 := "service2.test-ns.svc.foo.remote"
-	expectedLocal2 := "service2.test-ns.svc.cluster.local"
+	// Check clusterset domains
+	assert.Contains(t, remoteDomains, "service1.test-ns.svc.clusterset.remote")
+	assert.Contains(t, remoteDomains, "service2.test-ns.svc.clusterset.remote")
 
-	foundRemote1 := false
-	foundRemote2 := false
-
-	for _, domain := range remoteDomains {
-		if domain == expectedRemote1 {
-			foundRemote1 = true
-		}
-		if domain == expectedRemote2 {
-			foundRemote2 = true
-		}
-	}
-
-	if !foundRemote1 {
-		t.Errorf("Expected to find remote domain: %s", expectedRemote1)
-	}
-	if !foundRemote2 {
-		t.Errorf("Expected to find remote domain: %s", expectedRemote2)
-	}
-
-	if domainMapping[expectedRemote1] != expectedLocal1 {
-		t.Errorf("Expected mapping %s -> %s, got: %s", expectedRemote1, expectedLocal1, domainMapping[expectedRemote1])
-	}
-	if domainMapping[expectedRemote2] != expectedLocal2 {
-		t.Errorf("Expected mapping %s -> %s, got: %s", expectedRemote2, expectedLocal2, domainMapping[expectedRemote2])
-	}
+	// Check cluster-specific domains
+	assert.Contains(t, remoteDomains, "service1.test-ns.svc.foo.remote")
+	assert.Contains(t, remoteDomains, "service2.test-ns.svc.foo.remote")
 }
 
 func TestGenerateCrossClusterServiceDomains_Nil(t *testing.T) {
@@ -136,24 +115,22 @@ func TestGenerateCrossClusterServiceDomains_EmptyClusterName(t *testing.T) {
 	)
 	remoteDomains, domainMapping := GenerateCrossClusterServiceDomains(clientset, serviceList)
 
-	if len(remoteDomains) != 1 {
-		t.Errorf("Expected 1 remote domain, got: %d", len(remoteDomains))
+	// When cluster name is empty, generates clusterset and default cluster domains
+	if len(remoteDomains) != 2 {
+		t.Errorf("Expected 2 remote domains, got: %d", len(remoteDomains))
 	}
 
-	if len(domainMapping) != 1 {
-		t.Errorf("Expected 1 domain mapping, got: %d", len(domainMapping))
+	if len(domainMapping) != 2 {
+		t.Errorf("Expected 2 domain mappings, got: %d", len(domainMapping))
 	}
 
-	expectedRemote := "service1.test-ns.svc.default-cluster-name.remote"
-	expectedLocal := "service1.test-ns.svc.cluster.local"
+	// Check clusterset domain
+	assert.Contains(t, remoteDomains, "service1.test-ns.svc.clusterset.remote")
 
-	if len(remoteDomains) > 0 && remoteDomains[0] != expectedRemote {
-		t.Errorf("Expected remote domain: %s, got: %s", expectedRemote, remoteDomains[0])
-	}
-
-	if domainMapping[expectedRemote] != expectedLocal {
-		t.Errorf("Expected mapping %s -> %s, got: %s", expectedRemote, expectedLocal, domainMapping[expectedRemote])
-	}
+	// Check default cluster domain
+	assert.Contains(t, remoteDomains, "service1.test-ns.svc.default-cluster-name.remote")
+	assert.Equal(t, "service1.test-ns.svc.cluster.local", domainMapping["service1.test-ns.svc.default-cluster-name.remote"])
+	assert.Equal(t, "service1.test-ns.svc.cluster.local", domainMapping["service1.test-ns.svc.clusterset.remote"])
 }
 
 func TestGenerateCaddyConfig(t *testing.T) {

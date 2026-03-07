@@ -6,18 +6,23 @@ import (
 
 	"github.com/miekg/dns"
 	dnsserver "github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/dnsserver"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
+	k8sclient "github.com/wold9168/k8s-cross-cluster/lib/k8sclient"
 )
 
 // DNSRecordManager manages DNS records in the embedded DNS server
 type DNSRecordManager struct {
 	dnsServer *dnsserver.DNSServer
+	clientset kubernetes.Interface
 }
 
 // NewDNSRecordManager creates a new DNSRecordManager
-func NewDNSRecordManager(dnsServer *dnsserver.DNSServer) *DNSRecordManager {
+func NewDNSRecordManager(dnsServer *dnsserver.DNSServer, clientset kubernetes.Interface) *DNSRecordManager {
 	return &DNSRecordManager{
 		dnsServer: dnsServer,
+		clientset: clientset,
 	}
 }
 
@@ -45,8 +50,24 @@ func (drm *DNSRecordManager) UpdateRecordForSelf(self PeerInfo) error {
 		return fmt.Errorf("cannot extract node name from self: %w", err)
 	}
 
+	// Get current Pod IP instead of using Tailscale IPs
+	//
+	// A peculiar issue is that if you are using Tailscale's
+	// userspace mode and connect to the current Tailscale node's
+	// IP via the SOCKS5 or HTTP proxy provided by that userspace
+	// mode, you won't be able to connect to anything. You can
+	// connect from this node to other Tailscale nodes' IPs, and
+	// you can connect back from other Tailscale nodes, and you
+	// can also connect to this node's IP via podIP and loopback
+	// address—but you simply cannot use the Tailnet IP of this node itself.
+	podIP, err := k8sclient.GetCurrentPodIP(drm.clientset)
+	if err != nil {
+		return fmt.Errorf("failed to get current Pod IP: %w", err)
+	}
+	klog.Infof("Using Pod IP %s for self node %s instead of Tailscale IPs", podIP, nodeName)
+
 	recordName := fmt.Sprintf("*.*.svc.%s.remote.", nodeName)
-	return drm.addOrUpdateRecords(recordName, nodeName, self.TailscaleIPs)
+	return drm.addOrUpdateRecords(recordName, nodeName, []string{podIP})
 }
 
 // addOrUpdateRecords adds or updates DNS records for a given record name

@@ -31,9 +31,12 @@ spec:
     - name: coredns-http
       port: 8080
       targetPort: 8080
-    - name: coredns-metrics
+    - name: coredns-config-manager-metrics
       port: 8081
       targetPort: 8081
+    - name: caddy-config-manager-metrics
+      port: 8082
+      targetPort: 8082
   type: ClusterIP  # 仅集群内可访问
 ---
 apiVersion: apps/v1
