@@ -329,3 +329,40 @@ func FormatClustersetDomain(serviceName, namespace string) string {
 	serviceName = strings.ReplaceAll(serviceName, ".", "-")
 	return serviceName + "." + namespace + ".svc.clusterset.remote"
 }
+
+// GetLoadBalancerStatus returns the current status of all service keys maintained by the load balancer
+// This includes the service key, its endpoints, and the next round-robin index
+func (lb *LoadBalancer) GetLoadBalancerStatus() []LBStatus {
+	lb.rrMu.RLock()
+	defer lb.rrMu.RUnlock()
+
+	status := make([]LBStatus, 0, len(lb.rrCounters))
+
+	for serviceKey, counter := range lb.rrCounters {
+		// Parse service key to get service name and namespace
+		parts := strings.SplitN(serviceKey, ".", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		serviceName := parts[0]
+		namespace := parts[1]
+
+		// Get endpoints for this service
+		endpoints := lb.serviceDiscovery.GetServiceEndpoints(serviceName, namespace)
+
+		// Calculate next idx (current value of counter)
+		// Since we use atomic.AddUint64(counter, 1) % len(endpoints),
+		// the next idx will be (current counter value + 1) % len(endpoints)
+		currentCounter := atomic.LoadUint64(counter)
+		nextIdx := (currentCounter + 1) % uint64(len(endpoints))
+
+		status = append(status, LBStatus{
+			ServiceKey:  serviceKey,
+			Endpoints:   endpoints,
+			NextIdx:     nextIdx,
+			EndpointNum: len(endpoints),
+		})
+	}
+
+	return status
+}

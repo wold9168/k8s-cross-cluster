@@ -17,6 +17,7 @@ type App struct {
 	configManager     *ConfigManager
 	permissionChecker *PermissionChecker
 	metricsManager    *metrics.Manager
+	clientset         kubernetes.Interface
 	interval          time.Duration
 	metricsAddr       string
 
@@ -98,6 +99,9 @@ func (a *App) Initialize(clientset kubernetes.Interface, namespace string, opts 
 
 	a.permissionChecker = NewPermissionChecker(clientset, namespace)
 
+	// Store clientset for API server
+	a.clientset = clientset
+
 	klog.Info("Caddy Config Manager App components initialized")
 	return nil
 }
@@ -119,6 +123,13 @@ func (a *App) Run(ctx context.Context) error {
 	go func() {
 		if err := a.metricsManager.Start(a.metricsAddr); err != nil {
 			klog.Errorf("Metrics server failed: %v", err)
+		}
+	}()
+
+	// 启动 API 服务器
+	go func() {
+		if err := StartServer(apiAddr, a.configManager, a.clientset); err != nil {
+			klog.Errorf("API server failed: %v", err)
 		}
 	}()
 
