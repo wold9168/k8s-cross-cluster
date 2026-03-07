@@ -76,7 +76,7 @@ func (dcm *DNSConfigManager) Initialize(ctx context.Context) error {
 	dcm.serviceDiscovery = NewServiceDiscovery(dcm.peerDiscovery)
 
 	// Initialize load balancer
-	dcm.loadBalancer = NewLoadBalancer(dcm.serviceDiscovery, dcm.dnsServer)
+	dcm.loadBalancer = NewLoadBalancer(dcm.serviceDiscovery, dcm.dnsServer, dcm.peerDiscovery)
 
 	// Register load balancer query handler with DNS server
 	dcm.dnsServer.RegisterQueryHandler(dcm.loadBalancer.HandleQuery)

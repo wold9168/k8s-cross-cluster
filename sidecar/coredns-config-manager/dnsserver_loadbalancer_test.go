@@ -35,7 +35,7 @@ func TestDNSServer_WithLoadBalancerHandler_ClustersetRemote(t *testing.T) {
 	}
 
 	// 3. 创建 LoadBalancer
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// 4. 将 LoadBalancer.HandleQuery 注册为 DNS 服务器的 QueryHandler
 	dnsSrv.RegisterQueryHandler(lb.HandleQuery)
@@ -93,7 +93,7 @@ func TestDNSServer_WithLoadBalancerHandler_ClustersetRemote_MultipleClusters(t *
 		},
 	}
 
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 	dnsSrv.RegisterQueryHandler(lb.HandleQuery)
 
 	c := new(dns.Client)
@@ -132,7 +132,7 @@ func TestDNSServer_WithLoadBalancerHandler_NonClustersetDomain(t *testing.T) {
 
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 	dnsSrv.RegisterQueryHandler(lb.HandleQuery)
 
 	// 添加本地 DNS 记录
@@ -164,7 +164,7 @@ func TestDNSServer_WithLoadBalancerHandler_ClustersetNotFound(t *testing.T) {
 	mockPeerLister := &MockPeerLister{}
 	sd := NewServiceDiscovery(mockPeerLister)
 	// 不预填充任何服务
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 	dnsSrv.RegisterQueryHandler(lb.HandleQuery)
 
 	c := new(dns.Client)
@@ -201,7 +201,7 @@ func TestDNSServer_WithLoadBalancerHandler_ClustersetIPv6(t *testing.T) {
 		},
 	}
 
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 	dnsSrv.RegisterQueryHandler(lb.HandleQuery)
 
 	c := new(dns.Client)
@@ -242,7 +242,7 @@ func TestDNSServer_WithLoadBalancerHandler_ClustersetDifferentNamespace(t *testi
 		},
 	}
 
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 	dnsSrv.RegisterQueryHandler(lb.HandleQuery)
 
 	c := new(dns.Client)
@@ -291,7 +291,7 @@ func TestDNSServer_WithLoadBalancerHandler_ClustersetInvalidDomain(t *testing.T)
 		},
 	}
 
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 	dnsSrv.RegisterQueryHandler(lb.HandleQuery)
 
 	c := new(dns.Client)
@@ -329,7 +329,7 @@ func TestDNSServer_WithLoadBalancerHandler_LocalRecordPriority(t *testing.T) {
 		},
 	}
 
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 	dnsSrv.RegisterQueryHandler(lb.HandleQuery)
 
 	// 添加本地 DNS 记录（与 clusterset 域名相同）
@@ -374,7 +374,7 @@ func TestDNSServer_WithLoadBalancerHandler_MultipleHandlers(t *testing.T) {
 		},
 	}
 
-	lb := NewLoadBalancer(sd, dnsSrv)
+	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	// 注册一个空的 Handler 作为前置
 	dnsSrv.RegisterQueryHandler(func(domain string, qtype uint16) ([]dns.RR, bool) {
