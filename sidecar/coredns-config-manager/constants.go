@@ -32,3 +32,8 @@ const (
 	ServiceDiscoveryPort      = 8081
 	ServiceDiscoveryTimeout   = 5 * time.Second
 )
+
+// Proxy configuration constants
+const (
+	SOCKS5Proxy = "127.0.0.1:1055"
+)
