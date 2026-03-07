@@ -71,8 +71,13 @@ func (lb *LoadBalancer) HandleQuery(domain string, qtype uint16) ([]dns.RR, bool
 		return nil, false
 	}
 
+	// Get Tailscale IP for logging
+	tailnetIP := lb.GetPeerTailscaleIP(selectedEndpoint.ClusterName)
+	if tailnetIP == "" {
+		tailnetIP = selectedEndpoint.IP.String()
+	}
 	klog.Infof("Load balanced query %s -> %s (cluster: %s)",
-		domain, selectedEndpoint.IP, selectedEndpoint.ClusterName)
+		domain, tailnetIP, selectedEndpoint.ClusterName)
 
 	return answers, true
 }
