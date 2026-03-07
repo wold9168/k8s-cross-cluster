@@ -1,0 +1,127 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/allrecords": {
+            "get": {
+                "description": "Returns all DNS records managed by the CoreDNS config manager",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Get all DNS records",
+                "responses": {
+                    "200": {
+                        "description": "DNS records response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/healthz": {
+            "get": {
+                "description": "Returns OK if the service is running",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/lbstatus": {
+            "get": {
+                "description": "Returns the current status of the load balancer, including all the service keys, endpoints, and the next index value",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loadbalancer"
+                ],
+                "summary": "Get load balancer status",
+                "responses": {
+                    "200": {
+                        "description": "Load balancer status response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/rotate": {
+            "post": {
+                "description": "Manually triggers round-robin rotation for all discovered services",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loadbalancer"
+                ],
+                "summary": "Trigger load balancer rotation",
+                "responses": {
+                    "200": {
+                        "description": "Rotation results",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/svc": {
+            "get": {
+                "description": "Returns all Kubernetes services in the current namespace in clusterset format with DNS domain mappings",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "services"
+                ],
+                "summary": "Get all services in clusterset format",
+                "responses": {
+                    "200": {
+                        "description": "Services response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

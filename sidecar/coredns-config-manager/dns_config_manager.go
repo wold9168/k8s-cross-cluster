@@ -13,6 +13,25 @@ import (
 	"github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/svc"
 )
 
+// lbStatusWrapper 实现了 svc.LoadBalancerStatusProvider 接口
+type lbStatusWrapper struct {
+	*LoadBalancer
+}
+
+func (w *lbStatusWrapper) GetLoadBalancerStatus() []svc.LBStatus {
+	status := w.LoadBalancer.GetLoadBalancerStatus()
+	result := make([]svc.LBStatus, len(status))
+	for i, s := range status {
+		result[i] = svc.LBStatus{
+			ServiceKey:  s.ServiceKey,
+			Endpoints:   s.Endpoints,
+			NextIdx:     s.NextIdx,
+			EndpointNum: s.EndpointNum,
+		}
+	}
+	return result
+}
+
 // DNSConfigManager orchestrates the complete DNS configuration lifecycle
 type DNSConfigManager struct {
 	clientset        *kubernetes.Clientset
@@ -111,7 +130,8 @@ func (dcm *DNSConfigManager) Initialize(ctx context.Context) error {
 
 	// Start API server
 	go func() {
-		if err := svc.StartServer(dcm.config.APIAddr, dcm.dnsServer, dcm.clientset, nodeName); err != nil {
+		wrapper := &lbStatusWrapper{LoadBalancer: dcm.loadBalancer}
+		if err := svc.StartServer(dcm.config.APIAddr, dcm.dnsServer, dcm.clientset, nodeName, wrapper, dcm.loadBalancer); err != nil {
 			klog.Errorf("API server failed: %v", err)
 		}
 	}()

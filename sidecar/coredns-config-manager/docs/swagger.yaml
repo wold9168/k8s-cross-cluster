@@ -1,0 +1,85 @@
+info:
+  contact: {}
+paths:
+  /allrecords:
+    get:
+      consumes:
+      - application/json
+      description: Returns all DNS records managed by the CoreDNS config manager
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: DNS records response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all DNS records
+      tags:
+      - dns
+  /healthz:
+    get:
+      consumes:
+      - application/json
+      description: Returns OK if the service is running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Health check
+      tags:
+      - health
+  /lbstatus:
+    get:
+      consumes:
+      - application/json
+      description: Returns the current status of the load balancer, including all
+        the service keys, endpoints, and the next index value
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Load balancer status response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get load balancer status
+      tags:
+      - loadbalancer
+  /rotate:
+    post:
+      consumes:
+      - application/json
+      description: Manually triggers round-robin rotation for all discovered services
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rotation results
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Trigger load balancer rotation
+      tags:
+      - loadbalancer
+  /svc:
+    get:
+      consumes:
+      - application/json
+      description: Returns all Kubernetes services in the current namespace in clusterset
+        format with DNS domain mappings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Services response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all services in clusterset format
+      tags:
+      - services
+swagger: "2.0"

@@ -199,6 +199,22 @@ func (sd *ServiceDiscovery) GetLastUpdateTime(clusterName string) (time.Time, bo
 	return t, ok
 }
 
+// GetAllServiceKeys returns all unique service keys discovered from remote clusters
+// Returns a map with key format "serviceName.namespace"
+func (sd *ServiceDiscovery) GetAllServiceKeys() map[string]struct{} {
+	sd.cacheMu.RLock()
+	defer sd.cacheMu.RUnlock()
+
+	serviceKeys := make(map[string]struct{})
+	for _, serviceList := range sd.serviceCache {
+		for serviceKey := range serviceList.Services {
+			serviceKeys[serviceKey] = struct{}{}
+		}
+	}
+
+	return serviceKeys
+}
+
 // ClearCache clears the service cache
 func (sd *ServiceDiscovery) ClearCache() {
 	sd.cacheMu.Lock()

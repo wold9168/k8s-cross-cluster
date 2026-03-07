@@ -64,3 +64,11 @@ type ServiceEndpoint struct {
 	Service     RemoteService
 	IP          netip.Addr
 }
+
+// LBStatus represents the status of a single service key in the load balancer
+type LBStatus struct {
+	ServiceKey  string            `json:"serviceKey"`
+	Endpoints   []ServiceEndpoint `json:"endpoints"`
+	NextIdx     uint64            `json:"nextIdx"`
+	EndpointNum int               `json:"endpointNum"`
+}
