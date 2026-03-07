@@ -162,6 +162,8 @@ graph TB
     H -->|Get Peers| N
     H -->|Get Peers| R
 
+```
+
 服务发现流程
 
 ```mermaid
