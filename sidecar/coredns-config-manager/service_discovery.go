@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/proxy"
 	"k8s.io/klog/v2"
 )
 
@@ -26,9 +27,21 @@ type ServiceDiscovery struct {
 
 // NewServiceDiscovery creates a new ServiceDiscovery instance
 func NewServiceDiscovery(peerLister PeerLister) *ServiceDiscovery {
+	// Create SOCKS5 dialer
+	dialer, err := proxy.SOCKS5("tcp", SOCKS5Proxy, nil, proxy.Direct)
+	if err != nil {
+		klog.Fatalf("Failed to create SOCKS5 proxy dialer: %v", err)
+	}
+
+	// Create HTTP transport using SOCKS5 proxy
+	transport := &http.Transport{
+		Dial: dialer.Dial,
+	}
+
 	return &ServiceDiscovery{
 		client: &http.Client{
-			Timeout: ServiceDiscoveryTimeout,
+			Timeout:   ServiceDiscoveryTimeout,
+			Transport: transport,
 		},
 		peerLister:   peerLister,
 		serviceCache: make(map[string]*RemoteServiceList),
