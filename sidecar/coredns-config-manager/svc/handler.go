@@ -98,7 +98,7 @@ func (h *Handler) handleAllRecords(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Get load balancer status
-// @Description Returns the current status of the load balancer, including service keys, endpoints, and the next index value
+// @Description Returns the current status of the load balancer, including all the service keys, endpoints, and the next index value
 // @Tags loadbalancer
 // @Accept json
 // @Produce json
