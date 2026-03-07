@@ -23,7 +23,7 @@ func TestHandler_ServeHTTP_Success(t *testing.T) {
 	dnsSrv.AddRecord("test.com", 1, 600, "10.0.0.1")
 
 	// 创建 handler
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 
 	// 创建测试请求
 	req := httptest.NewRequest(http.MethodGet, "/allrecords", nil)
@@ -78,7 +78,7 @@ func TestHandler_ServeHTTP_Success(t *testing.T) {
 // TestHandler_ServeHTTP_MethodNotAllowed 测试非 GET 请求
 func TestHandler_ServeHTTP_MethodNotAllowed(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer(":0")
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 
 	testCases := []struct {
 		method string
@@ -107,7 +107,7 @@ func TestHandler_ServeHTTP_MethodNotAllowed(t *testing.T) {
 // TestHandler_ServeHTTP_EmptyRecords 测试没有 DNS 记录的情况
 func TestHandler_ServeHTTP_EmptyRecords(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer(":0")
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/allrecords", nil)
 	w := httptest.NewRecorder()
@@ -137,7 +137,7 @@ func TestHandler_ServeHTTP_EmptyRecords(t *testing.T) {
 // TestHandler_ServeHTTP_Timestamp 测试时间戳字段
 func TestHandler_ServeHTTP_Timestamp(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer(":0")
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/allrecords", nil)
 	w := httptest.NewRecorder()
@@ -161,7 +161,7 @@ func TestHandler_ServeHTTP_Timestamp(t *testing.T) {
 func TestHandler_ServeHTTP_ResponseFormat(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer(":0")
 	dnsSrv.AddRecord("example.com", 1, 300, "192.168.1.1")
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/allrecords", nil)
 	w := httptest.NewRecorder()
@@ -205,7 +205,7 @@ func containsDoubleSpace(s string) bool {
 // TestNewHandler 测试 NewHandler 函数
 func TestNewHandler(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer(":0")
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 
 	if handler == nil {
 		t.Fatal("NewHandler returned nil")
@@ -221,7 +221,7 @@ func TestStartServer_HandlerCreation(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer(":0")
 
 	// 创建一个测试用的 handler 来验证 StartServer 会正确创建 handler
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 	if handler == nil {
 		t.Fatal("Failed to create handler")
 	}
@@ -239,7 +239,7 @@ func TestStartServer_HandlerCreation(t *testing.T) {
 // TestHandler_HealthzEndpoint 测试健康检查端点
 func TestHandler_HealthzEndpoint(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer(":0")
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 
 	// 创建 mux 来模拟 StartServer 中的设置
 	mux := http.NewServeMux()
@@ -277,7 +277,7 @@ func TestHandler_ServeHTTP_LargeNumberOfRecords(t *testing.T) {
 		dnsSrv.AddRecord(fmt.Sprintf("domain%d.com", i), 1, 300, fmt.Sprintf("192.168.1.%d", i))
 	}
 
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/allrecords", nil)
 	w := httptest.NewRecorder()
@@ -308,7 +308,7 @@ func TestHandler_ServeHTTP_DifferentRecordTypes(t *testing.T) {
 	dnsSrv.AddRecord("example.com", 28, 300, "::1")            // AAAA 记录
 	dnsSrv.AddRecord("example.com", 15, 300, "mail.example.com") // MX 记录
 
-	handler := NewHandler(dnsSrv, nil, "test-node", nil)
+	handler := NewHandler(dnsSrv, nil, "test-node", nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/allrecords", nil)
 	w := httptest.NewRecorder()
