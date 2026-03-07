@@ -95,7 +95,7 @@ func (dcm *DNSConfigManager) Initialize(ctx context.Context) error {
 
 	// Start API server
 	go func() {
-		if err := svc.StartServer(dcm.config.APIAddr, dcm.dnsServer); err != nil {
+		if err := svc.StartServer(dcm.config.APIAddr, dcm.dnsServer, dcm.clientset); err != nil {
 			klog.Errorf("API server failed: %v", err)
 		}
 	}()
