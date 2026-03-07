@@ -5,13 +5,21 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 
 	dnsserver "github.com/wold9168/k8s-cross-cluster/sidecar/coredns-config-manager/dnsserver"
 )
 
+// createTestClientset creates a fake kubernetes clientset for testing
+func createTestClientset() kubernetes.Interface {
+	return fake.NewSimpleClientset()
+}
+
 func TestDNSRecordManager_New(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := createTestClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	assert.NotNil(t, drm)
 	assert.Equal(t, dnsSrv, drm.dnsServer)
@@ -19,7 +27,8 @@ func TestDNSRecordManager_New(t *testing.T) {
 
 func TestDNSRecordManager_UpdateRecordsForGateways(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := createTestClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	peers := []PeerInfo{
 		{
@@ -48,7 +57,8 @@ func TestDNSRecordManager_UpdateRecordsForGateways(t *testing.T) {
 
 func TestDNSRecordManager_UpdateRecordsForGateways_InvalidHostname(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	peers := []PeerInfo{
 		{
@@ -65,7 +75,8 @@ func TestDNSRecordManager_UpdateRecordsForGateways_InvalidHostname(t *testing.T)
 
 func TestDNSRecordManager_UpdateRecordsForGateways_MultipleIPs(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	peers := []PeerInfo{
 		{
@@ -84,12 +95,16 @@ func TestDNSRecordManager_UpdateRecordsForGateways_MultipleIPs(t *testing.T) {
 }
 
 func TestDNSRecordManager_UpdateRecordForSelf(t *testing.T) {
+	// Set environment variable to control Pod IP for testing
+	t.Setenv("POD_IP", "192.168.1.100")
+
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	self := PeerInfo{
 		HostName:     "self-cluster-tsgateway",
-		TailscaleIPs: []string{"100.64.0.100"},
+		TailscaleIPs: []string{"100.64.0.100"}, // This should not be used anymore
 	}
 
 	err := drm.UpdateRecordForSelf(self)
@@ -98,12 +113,14 @@ func TestDNSRecordManager_UpdateRecordForSelf(t *testing.T) {
 
 	records := dnsSrv.GetRecords("*.*.svc.self-cluster.remote.")
 	assert.Len(t, records, 1)
-	assert.Equal(t, "100.64.0.100", records[0].Value)
+	// Verify that Pod IP from environment variable is used instead of Tailscale IP
+	assert.Equal(t, "192.168.1.100", records[0].Value)
 }
 
 func TestDNSRecordManager_UpdateRecordForSelf_InvalidHostname(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	self := PeerInfo{
 		HostName:     "invalid-hostname",
@@ -117,7 +134,8 @@ func TestDNSRecordManager_UpdateRecordForSelf_InvalidHostname(t *testing.T) {
 
 func TestDNSRecordManager_AddOrUpdateRecords_IPv4(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	err := drm.addOrUpdateRecords("test.remote.", "test-node", []string{"192.168.1.1"})
 
@@ -131,7 +149,8 @@ func TestDNSRecordManager_AddOrUpdateRecords_IPv4(t *testing.T) {
 
 func TestDNSRecordManager_AddOrUpdateRecords_IPv6(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	err := drm.addOrUpdateRecords("test.remote.", "test-node", []string{"fd7a:115c:a1e0::1"})
 
@@ -145,7 +164,8 @@ func TestDNSRecordManager_AddOrUpdateRecords_IPv6(t *testing.T) {
 
 func TestDNSRecordManager_AddOrUpdateRecords_MultipleIPs(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	ips := []string{"192.168.1.1", "192.168.1.2"}
 
@@ -159,7 +179,8 @@ func TestDNSRecordManager_AddOrUpdateRecords_MultipleIPs(t *testing.T) {
 
 func TestDNSRecordManager_AddOrUpdateRecords_InvalidIP(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	err := drm.addOrUpdateRecords("test.remote.", "test-node", []string{"invalid-ip"})
 
@@ -171,7 +192,8 @@ func TestDNSRecordManager_AddOrUpdateRecords_InvalidIP(t *testing.T) {
 
 func TestDNSRecordManager_AddOrUpdateRecords_UpdateExisting(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	// Add initial record
 	drm.addOrUpdateRecords("test.remote.", "test-node", []string{"192.168.1.1"})
@@ -186,7 +208,8 @@ func TestDNSRecordManager_AddOrUpdateRecords_UpdateExisting(t *testing.T) {
 
 func TestDNSRecordManager_GetRecordCount(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	// Initially empty
 	assert.Equal(t, 0, drm.GetRecordCount())
@@ -200,7 +223,8 @@ func TestDNSRecordManager_GetRecordCount(t *testing.T) {
 
 func TestDNSRecordManager_GetAllRecords(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	drm.addOrUpdateRecords("test1.remote.", "node1", []string{"192.168.1.1"})
 	drm.addOrUpdateRecords("test2.remote.", "node2", []string{"192.168.1.2"})
@@ -214,7 +238,8 @@ func TestDNSRecordManager_GetAllRecords(t *testing.T) {
 
 func TestDNSRecordManager_GetAllRecords_Empty(t *testing.T) {
 	dnsSrv := dnsserver.NewDNSServer("127.0.0.1:0")
-	drm := NewDNSRecordManager(dnsSrv)
+	clientset := fake.NewSimpleClientset()
+	drm := NewDNSRecordManager(dnsSrv, clientset)
 
 	allRecords := drm.GetAllRecords()
 
