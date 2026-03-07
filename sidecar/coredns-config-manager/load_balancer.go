@@ -381,3 +381,53 @@ func (lb *LoadBalancer) GetLoadBalancerStatus() []LBStatus {
 
 	return status
 }
+
+// RotateAllServices triggers round-robin rotation for all discovered services
+// This forces the creation of counters for all services, even if they have only one endpoint
+// Returns a map of serviceKey -> nextIdx after rotation
+func (lb *LoadBalancer) RotateAllServices() map[string]uint64 {
+	results := make(map[string]uint64)
+
+	// Get all discovered service keys from service discovery
+	allServiceKeys := lb.serviceDiscovery.GetAllServiceKeys()
+
+	lb.rrMu.Lock()
+	defer lb.rrMu.Unlock()
+
+	for serviceKey := range allServiceKeys {
+		// Parse service key to get service name and namespace
+		parts := strings.SplitN(serviceKey, ".", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		serviceName := parts[0]
+		namespace := parts[1]
+
+		// Get endpoints for this service
+		endpoints := lb.serviceDiscovery.GetServiceEndpoints(serviceName, namespace)
+		if len(endpoints) == 0 {
+			continue
+		}
+
+		// Get or create counter for this service
+		counter, ok := lb.rrCounters[serviceKey]
+		if !ok {
+			counter = new(uint64)
+			lb.rrCounters[serviceKey] = counter
+		}
+
+		// Increment counter and get next idx
+		if len(endpoints) > 1 {
+			nextIdx := atomic.AddUint64(counter, 1) % uint64(len(endpoints))
+			results[serviceKey] = nextIdx
+			klog.Infof("Rotated service %s to index %d (total endpoints: %d)", serviceKey, nextIdx, len(endpoints))
+		} else {
+			// Single endpoint, still record it but with idx 0
+			results[serviceKey] = 0
+			klog.Infof("Service %s has only 1 endpoint, recorded with idx 0", serviceKey)
+		}
+	}
+
+	klog.Infof("Rotation completed for %d services", len(results))
+	return results
+}

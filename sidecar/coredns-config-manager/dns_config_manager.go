@@ -131,7 +131,7 @@ func (dcm *DNSConfigManager) Initialize(ctx context.Context) error {
 	// Start API server
 	go func() {
 		wrapper := &lbStatusWrapper{LoadBalancer: dcm.loadBalancer}
-		if err := svc.StartServer(dcm.config.APIAddr, dcm.dnsServer, dcm.clientset, nodeName, wrapper); err != nil {
+		if err := svc.StartServer(dcm.config.APIAddr, dcm.dnsServer, dcm.clientset, nodeName, wrapper, dcm.loadBalancer); err != nil {
 			klog.Errorf("API server failed: %v", err)
 		}
 	}()

@@ -40,21 +40,28 @@ type LoadBalancerStatusProvider interface {
 	GetLoadBalancerStatus() []LBStatus
 }
 
+// LoadBalancerRotator 接口用于触发负载均衡器轮转
+type LoadBalancerRotator interface {
+	RotateAllServices() map[string]uint64
+}
+
 // Handler 提供 HTTP API 接口
 type Handler struct {
 	dnsSrv        *dnsserver.DNSServer
 	clientset     kubernetes.Interface
 	nodeName      string
 	lbStatus      LoadBalancerStatusProvider
+	lbRotator     LoadBalancerRotator
 }
 
 // NewHandler 创建新的 HTTP handler
-func NewHandler(dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface, nodeName string, lbStatus LoadBalancerStatusProvider) *Handler {
+func NewHandler(dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface, nodeName string, lbStatus LoadBalancerStatusProvider, lbRotator LoadBalancerRotator) *Handler {
 	return &Handler{
 		dnsSrv:        dnsSrv,
 		clientset:     clientset,
 		nodeName:      nodeName,
 		lbStatus:      lbStatus,
+		lbRotator:     lbRotator,
 	}
 }
 
@@ -190,20 +197,32 @@ func (h *Handler) handleSvc(w http.ResponseWriter, r *http.Request) {
 
 // ServeHTTP 实现 http.Handler 接口
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// 只处理 GET 请求
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	// 根据路径分发到不同的处理函数
 	switch r.URL.Path {
 	case "/svc":
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
 		h.handleSvc(w, r)
 	case "/allrecords":
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
 		h.handleAllRecords(w, r)
 	case "/lbstatus":
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
 		h.handleLBStatus(w, r)
+	case "/rotate":
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		h.handleRotate(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -221,14 +240,52 @@ func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
+// @Summary Trigger load balancer rotation
+// @Description Manually triggers round-robin rotation for all discovered services
+// @Tags loadbalancer
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Rotation results"
+// @Router /rotate [post]
+func (h *Handler) handleRotate(w http.ResponseWriter, r *http.Request) {
+	if h.lbRotator == nil {
+		http.Error(w, "Load balancer rotator not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Trigger rotation for all services
+	results := h.lbRotator.RotateAllServices()
+
+	// Build response
+	response := map[string]interface{}{
+		"timestamp":    time.Now().Unix(),
+		"rotated":      len(results),
+		"serviceKeys":  results,
+	}
+
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	// Encode as JSON
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(response); err != nil {
+		klog.Errorf("Failed to encode rotate response as JSON: %v", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
 // StartServer 启动 HTTP API 服务器
-func StartServer(addr string, dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface, nodeName string, lbStatus LoadBalancerStatusProvider) error {
-	handler := NewHandler(dnsSrv, clientset, nodeName, lbStatus)
+func StartServer(addr string, dnsSrv *dnsserver.DNSServer, clientset kubernetes.Interface, nodeName string, lbStatus LoadBalancerStatusProvider, lbRotator LoadBalancerRotator) error {
+	handler := NewHandler(dnsSrv, clientset, nodeName, lbStatus, lbRotator)
 
 	mux := http.NewServeMux()
 	mux.Handle("/allrecords", handler)
 	mux.Handle("/svc", handler)
 	mux.Handle("/lbstatus", handler)
+	mux.Handle("/rotate", handler)
 
 	// 添加健康检查端点
 	mux.HandleFunc("/healthz", healthzHandler)
