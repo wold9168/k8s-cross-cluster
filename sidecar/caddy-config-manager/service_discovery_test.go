@@ -128,14 +128,21 @@ func TestServiceDiscovery_GenerateDomainMapping(t *testing.T) {
 
 	result := sd.GenerateDomainMapping(serviceList)
 
-	assert.Len(t, result.RemoteDomains, 2)
-	assert.Len(t, result.DomainMapping, 2)
+	// Now generates 2 domain types per service: clusterset and cluster-specific
+	assert.Len(t, result.RemoteDomains, 4)
+	assert.Len(t, result.DomainMapping, 4)
 
-	expectedRemote1 := "service1.test-ns.svc.test-cluster.remote"
-	expectedLocal1 := "service1.test-ns.svc.cluster.local"
+	// Check clusterset domains
+	assert.Contains(t, result.RemoteDomains, "service1.test-ns.svc.clusterset.remote")
+	assert.Equal(t, "service1.test-ns.svc.cluster.local", result.DomainMapping["service1.test-ns.svc.clusterset.remote"])
+	assert.Contains(t, result.RemoteDomains, "service2.test-ns.svc.clusterset.remote")
+	assert.Equal(t, "service2.test-ns.svc.cluster.local", result.DomainMapping["service2.test-ns.svc.clusterset.remote"])
 
-	assert.Contains(t, result.RemoteDomains, expectedRemote1)
-	assert.Equal(t, expectedLocal1, result.DomainMapping[expectedRemote1])
+	// Check cluster-specific domains
+	assert.Contains(t, result.RemoteDomains, "service1.test-ns.svc.test-cluster.remote")
+	assert.Equal(t, "service1.test-ns.svc.cluster.local", result.DomainMapping["service1.test-ns.svc.test-cluster.remote"])
+	assert.Contains(t, result.RemoteDomains, "service2.test-ns.svc.test-cluster.remote")
+	assert.Equal(t, "service2.test-ns.svc.cluster.local", result.DomainMapping["service2.test-ns.svc.test-cluster.remote"])
 }
 
 func TestServiceDiscovery_GenerateDomainMapping_Nil(t *testing.T) {
@@ -170,10 +177,15 @@ func TestServiceDiscovery_GenerateServiceDomainMapping(t *testing.T) {
 		},
 	}
 
-	mapping := sd.generateServiceDomainMapping(service)
+	// Test clusterset domain mapping
+	clustersetMapping := sd.generateClustersetDomainMapping(service)
+	assert.Equal(t, "my-service.my-ns.svc.clusterset.remote", clustersetMapping.RemoteDomain)
+	assert.Equal(t, "my-service.my-ns.svc.cluster.local", clustersetMapping.LocalDomain)
 
-	assert.Equal(t, "my-service.my-ns.svc.my-cluster.remote", mapping.RemoteDomain)
-	assert.Equal(t, "my-service.my-ns.svc.cluster.local", mapping.LocalDomain)
+	// Test cluster domain mapping
+	clusterMapping := sd.generateClusterDomainMapping(service)
+	assert.Equal(t, "my-service.my-ns.svc.my-cluster.remote", clusterMapping.RemoteDomain)
+	assert.Equal(t, "my-service.my-ns.svc.cluster.local", clusterMapping.LocalDomain)
 }
 
 func TestDomainMappingResult(t *testing.T) {

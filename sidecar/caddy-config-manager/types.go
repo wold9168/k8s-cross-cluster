@@ -2,8 +2,8 @@ package main
 
 // DomainMapping represents the mapping between remote and local domains
 type DomainMapping struct {
-	RemoteDomain string
-	LocalDomain  string
+	RemoteDomain string // remote domain: <service>.<namespace>.svc.clusterset.remote or <service>.<namespace>.svc.<cluster>.remote
+	LocalDomain  string // local domain: <service>.<namespace>.svc.cluster.local
 }
 
 // DomainMappingResult holds the result of domain generation

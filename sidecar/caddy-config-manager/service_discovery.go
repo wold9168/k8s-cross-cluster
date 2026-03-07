@@ -91,28 +91,51 @@ func (sd *ServiceDiscovery) GenerateDomainMapping(serviceList *v1.ServiceList) D
 	}
 
 	for _, service := range serviceList.Items {
-		mapping := sd.generateServiceDomainMapping(service)
-		result.RemoteDomains = append(result.RemoteDomains, mapping.RemoteDomain)
-		result.DomainMapping[mapping.RemoteDomain] = mapping.LocalDomain
+		// Generate clusterset domain mapping: <service>.<namespace>.svc.clusterset.remote -> <service>.<namespace>.svc.cluster.local
+		clustersetMapping := sd.generateClustersetDomainMapping(service)
+		result.RemoteDomains = append(result.RemoteDomains, clustersetMapping.RemoteDomain)
+		result.DomainMapping[clustersetMapping.RemoteDomain] = clustersetMapping.LocalDomain
+
+		// Generate cluster domain mapping: <service>.<namespace>.svc.<cluster>.remote -> <service>.<namespace>.svc.cluster.local
+		clusterMapping := sd.generateClusterDomainMapping(service)
+		result.RemoteDomains = append(result.RemoteDomains, clusterMapping.RemoteDomain)
+		result.DomainMapping[clusterMapping.RemoteDomain] = clusterMapping.LocalDomain
 	}
 
 	klog.Infof("Generated domain mappings for %d services", len(result.RemoteDomains))
 	return result
 }
 
-// generateServiceDomainMapping generates domain mapping for a single service
-func (sd *ServiceDiscovery) generateServiceDomainMapping(service v1.Service) DomainMapping {
+// generateClustersetDomainMapping generates domain mapping for clusterset format
+func (sd *ServiceDiscovery) generateClustersetDomainMapping(service v1.Service) DomainMapping {
 	serviceName := service.Name
 	namespace := service.Namespace
 
-	// Remote domain: <service>.<namespace>.svc.<cluster>.remote
-	remoteDomain := fmt.Sprintf("%s.%s.svc.%s.remote", serviceName, namespace, sd.clusterName)
+	// Remote domain: <service>.<namespace>.svc.clusterset.remote
+	clustersetDomain := fmt.Sprintf("%s.%s.svc.clusterset.remote", serviceName, namespace)
 
 	// Local domain: <service>.<namespace>.svc.cluster.local
 	localDomain := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, namespace)
 
 	return DomainMapping{
-		RemoteDomain: remoteDomain,
+		RemoteDomain: clustersetDomain,
+		LocalDomain:  localDomain,
+	}
+}
+
+// generateClusterDomainMapping generates domain mapping for cluster-specific format
+func (sd *ServiceDiscovery) generateClusterDomainMapping(service v1.Service) DomainMapping {
+	serviceName := service.Name
+	namespace := service.Namespace
+
+	// Remote domain: <service>.<namespace>.svc.<cluster>.remote
+	clusterDomain := fmt.Sprintf("%s.%s.svc.%s.remote", serviceName, namespace, sd.clusterName)
+
+	// Local domain: <service>.<namespace>.svc.cluster.local
+	localDomain := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, namespace)
+
+	return DomainMapping{
+		RemoteDomain: clusterDomain,
 		LocalDomain:  localDomain,
 	}
 }

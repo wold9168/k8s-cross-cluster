@@ -233,7 +233,9 @@ func TestConfigManager_GenerateDomainMapping(t *testing.T) {
 
 	result := cm.GenerateDomainMapping(serviceList)
 
-	assert.Len(t, result.RemoteDomains, 1)
+	// Now generates 2 domain types per service: clusterset and cluster-specific
+	assert.Len(t, result.RemoteDomains, 2)
+	assert.Contains(t, result.RemoteDomains, "mapping-svc.test-ns.svc.clusterset.remote")
 	assert.Contains(t, result.RemoteDomains, "mapping-svc.test-ns.svc.test-cluster.remote")
 }
 
