@@ -64,7 +64,7 @@ func NewDNSConfigManager(clientset *kubernetes.Clientset, config DNSConfigManage
 		dnsServer:        dnsServer,
 		metricsManager:   metrics.Init(),
 		peerDiscovery:    NewPeerDiscovery(),
-		dnsRecordManager: NewDNSRecordManager(dnsServer),
+		dnsRecordManager: NewDNSRecordManager(dnsServer, clientset),
 		coreDNSUpdater:   NewCoreDNSUpdater(clientset, config.CoreDNSConfig),
 		config:           config,
 	}
