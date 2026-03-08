@@ -74,7 +74,7 @@ func (lb *LoadBalancer) HandleQuery(domain string, qtype uint16) ([]dns.RR, bool
 	// Get Tailscale IP for logging
 	tailnetIP := lb.GetPeerTailscaleIP(selectedEndpoint.ClusterName)
 	if tailnetIP == "" {
-		tailnetIP = selectedEndpoint.IP.String()
+		tailnetIP = selectedEndpoint.ClusterIP.String()
 	}
 	klog.Infof("Load balanced query %s -> %s (cluster: %s)",
 		domain, tailnetIP, selectedEndpoint.ClusterName)
@@ -135,12 +135,12 @@ func (lb *LoadBalancer) buildAnswer(domain string, qtype uint16, endpoint Servic
 	tailscaleIP := lb.GetPeerTailscaleIP(endpoint.ClusterName)
 	if tailscaleIP == "" {
 		klog.Warningf("No Tailscale IP found for cluster %s, falling back to endpoint IP", endpoint.ClusterName)
-		tailscaleIP = endpoint.IP.String()
+		tailscaleIP = endpoint.ClusterIP.String()
 	}
 
 	switch qtype {
 	case dns.TypeA:
-		if endpoint.IP.Is4() || tailscaleIP != "" {
+		if endpoint.ClusterIP.Is4() || tailscaleIP != "" {
 			rr, err := dns.NewRR(domain + " 60 IN A " + tailscaleIP)
 			if err != nil {
 				klog.Errorf("Failed to create A record: %v", err)
@@ -149,7 +149,7 @@ func (lb *LoadBalancer) buildAnswer(domain string, qtype uint16, endpoint Servic
 			answers = append(answers, rr)
 		}
 	case dns.TypeAAAA:
-		if endpoint.IP.Is6() || tailscaleIP != "" {
+		if endpoint.ClusterIP.Is6() || tailscaleIP != "" {
 			rr, err := dns.NewRR(domain + " 60 IN AAAA " + tailscaleIP)
 			if err != nil {
 				klog.Errorf("Failed to create AAAA record: %v", err)
@@ -317,16 +317,16 @@ func (lb *LoadBalancer) ResolveService(serviceName, namespace string, qtype uint
 	// Filter by query type
 	switch qtype {
 	case dns.TypeA:
-		if !endpoint.IP.Is4() {
+		if !endpoint.ClusterIP.Is4() {
 			return netip.Addr{}, "", false
 		}
 	case dns.TypeAAAA:
-		if !endpoint.IP.Is6() {
+		if !endpoint.ClusterIP.Is6() {
 			return netip.Addr{}, "", false
 		}
 	}
 
-	return endpoint.IP, endpoint.ClusterName, true
+	return endpoint.ClusterIP, endpoint.ClusterName, true
 }
 
 // FormatClustersetDomain creates a .clusterset.remote domain from service name and namespace
@@ -360,6 +360,11 @@ func (lb *LoadBalancer) GetLoadBalancerStatus() []LBStatus {
 		endpoints := lb.serviceDiscovery.GetServiceEndpoints(serviceName, namespace)
 		if len(endpoints) == 0 {
 			continue
+		}
+
+		// Populate TailnetIP for each endpoint from peerCache
+		for i := range endpoints {
+			endpoints[i].TailnetIP = lb.GetPeerTailscaleIP(endpoints[i].ClusterName)
 		}
 
 		// Get counter if exists, otherwise use 0
@@ -409,6 +414,11 @@ func (lb *LoadBalancer) RotateAllServices() map[string]uint64 {
 			continue
 		}
 
+		// Populate TailnetIP for each endpoint from peerCache
+		for i := range endpoints {
+			endpoints[i].TailnetIP = lb.GetPeerTailscaleIP(endpoints[i].ClusterName)
+		}
+
 		// Get or create counter for this service
 		counter, ok := lb.rrCounters[serviceKey]
 		if !ok {
@@ -424,7 +434,7 @@ func (lb *LoadBalancer) RotateAllServices() map[string]uint64 {
 		} else {
 			// Single endpoint, still record it but with idx 0
 			results[serviceKey] = 0
-			klog.Infof("Service %s has only 1 endpoint, recorded with idx 0", serviceKey)
+			klog.Infof("Service %s.%s has only 1 endpoint, recorded with idx 0", serviceName, namespace)
 		}
 	}
 

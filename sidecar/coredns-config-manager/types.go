@@ -62,7 +62,8 @@ type RemoteServiceList struct {
 type ServiceEndpoint struct {
 	ClusterName string
 	Service     RemoteService
-	IP          netip.Addr
+	ClusterIP   netip.Addr
+	TailnetIP   string
 }
 
 // LBStatus represents the status of a single service key in the load balancer
