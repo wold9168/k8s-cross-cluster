@@ -228,7 +228,7 @@ func TestLoadBalancer_selectEndpoint_Single(t *testing.T) {
 	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	endpoints := []ServiceEndpoint{
-		{ClusterName: "cluster1", IP: netip.MustParseAddr("10.96.1.10")},
+		{ClusterName: "cluster1", ClusterIP: netip.MustParseAddr("10.96.1.10")},
 	}
 
 	result := lb.selectEndpoint("myapp", "default", endpoints)
@@ -243,9 +243,9 @@ func TestLoadBalancer_selectEndpoint_Multiple(t *testing.T) {
 	lb := NewLoadBalancer(sd, dnsSrv, nil)
 
 	endpoints := []ServiceEndpoint{
-		{ClusterName: "cluster1", IP: netip.MustParseAddr("10.96.1.10")},
-		{ClusterName: "cluster2", IP: netip.MustParseAddr("10.96.2.10")},
-		{ClusterName: "cluster3", IP: netip.MustParseAddr("10.96.3.10")},
+		{ClusterName: "cluster1", ClusterIP: netip.MustParseAddr("10.96.1.10")},
+		{ClusterName: "cluster2", ClusterIP: netip.MustParseAddr("10.96.2.10")},
+		{ClusterName: "cluster3", ClusterIP: netip.MustParseAddr("10.96.3.10")},
 	}
 
 	// Test round-robin behavior
@@ -324,7 +324,7 @@ func TestLoadBalancer_buildAnswer_A(t *testing.T) {
 
 	endpoint := ServiceEndpoint{
 		ClusterName: "cluster1",
-		IP:          netip.MustParseAddr("10.96.1.10"),
+		ClusterIP:   netip.MustParseAddr("10.96.1.10"),
 	}
 
 	answers := lb.buildAnswer("myapp.default.svc.clusterset.remote", dns.TypeA, endpoint)
@@ -340,7 +340,7 @@ func TestLoadBalancer_buildAnswer_AAAA(t *testing.T) {
 
 	endpoint := ServiceEndpoint{
 		ClusterName: "cluster1",
-		IP:          netip.MustParseAddr("fd7a:115c:a1e0::1"),
+		ClusterIP:   netip.MustParseAddr("fd7a:115c:a1e0::1"),
 	}
 
 	answers := lb.buildAnswer("myapp.default.svc.clusterset.remote", dns.TypeAAAA, endpoint)
@@ -357,7 +357,7 @@ func TestLoadBalancer_buildAnswer_TypeMismatch(t *testing.T) {
 	// IPv4 endpoint
 	endpoint := ServiceEndpoint{
 		ClusterName: "cluster1",
-		IP:          netip.MustParseAddr("10.96.1.10"),
+		ClusterIP:   netip.MustParseAddr("10.96.1.10"),
 	}
 
 	// Query for AAAA

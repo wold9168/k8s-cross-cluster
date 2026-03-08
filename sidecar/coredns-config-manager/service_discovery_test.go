@@ -143,7 +143,7 @@ func TestServiceDiscovery_GetServiceEndpoints(t *testing.T) {
 	clusterNames := make(map[string]bool)
 	for _, ep := range endpoints {
 		clusterNames[ep.ClusterName] = true
-		assert.NotNil(t, ep.IP)
+		assert.NotNil(t, ep.ClusterIP)
 	}
 	assert.True(t, clusterNames["cluster1"])
 	assert.True(t, clusterNames["cluster2"])

@@ -158,17 +158,19 @@ func (sd *ServiceDiscovery) GetServiceEndpoints(serviceName, namespace string) [
 		if services, ok := serviceList.Services[fullServiceName]; ok {
 			for _, svc := range services {
 				// Parse the ClusterIP to get the IP address
-				ip, err := netip.ParseAddr(svc.ClusterIP)
+				clusterIP, err := netip.ParseAddr(svc.ClusterIP)
 				if err != nil {
 					klog.Warningf("Invalid ClusterIP %s for service %s in cluster %s: %v",
 						svc.ClusterIP, fullServiceName, clusterName, err)
 					continue
 				}
 
+				// TailnetIP will be populated by LoadBalancer using peerCache
 				endpoints = append(endpoints, ServiceEndpoint{
 					ClusterName: clusterName,
 					Service:     svc,
-					IP:          ip,
+					ClusterIP:   clusterIP,
+					TailnetIP:   "",
 				})
 			}
 		}
