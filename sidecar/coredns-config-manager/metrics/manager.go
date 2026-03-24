@@ -49,8 +49,5 @@ func (m *Manager) UpdateDNSRecordCount(count int) {
 
 // Start 启动 metrics HTTP 服务器
 func (m *Manager) Start(addr string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	return StartServer(addr, m.collector)
 }
