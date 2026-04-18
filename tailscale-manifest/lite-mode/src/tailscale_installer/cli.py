@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+from collections.abc import Sequence
 
 from .config import InstallerConfig
 from .installer import TailscaleInstaller, TailscaleUninstaller
@@ -19,18 +20,17 @@ Examples:
   %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --extra-args "--login-server https://login.example.com"
   %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --extra-args "--login-server https://login.example.com --operator admin" --context my-cluster-context -v
   %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --force
+  %(prog)s --uninstall --context my-cluster-context
         """,
     )
 
     parser.add_argument(
         "--authkey",
-        required=True,
-        help="Tailscale auth key (required)",
+        help="Tailscale auth key (required for install)",
     )
     parser.add_argument(
         "--cluster-name",
-        required=True,
-        help="Cluster name for identification (required)",
+        help="Cluster name for identification (required for install)",
     )
     parser.add_argument(
         "--extra-args",
@@ -60,40 +60,81 @@ Examples:
     return parser
 
 
-def main() -> int:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse command-line arguments."""
+
+    return create_parser().parse_args(argv)
+
+
+def _get_missing_install_args(args: argparse.Namespace) -> list[str]:
+    """Return install-only arguments that are missing."""
+
+    required_args = {
+        "--authkey": args.authkey,
+        "--cluster-name": args.cluster_name,
+    }
+    return [flag for flag, value in required_args.items() if not value]
+
+
+def validate_args(args: argparse.Namespace) -> None:
+    """Validate arguments based on the selected mode."""
+
+    if args.uninstall:
+        if not args.context:
+            raise ValueError("--context is required for uninstall")
+        return
+
+    missing_install_args = _get_missing_install_args(args)
+    if missing_install_args:
+        missing_args = ", ".join(missing_install_args)
+        raise ValueError(f"install requires: {missing_args}")
+
+
+def build_installer_config(args: argparse.Namespace) -> InstallerConfig:
+    """Build installer configuration from parsed CLI arguments."""
+
+    return InstallerConfig(
+        auth_key=args.authkey,
+        cluster_name=args.cluster_name,
+        extra_args=args.extra_args,
+        context=args.context,
+        verbose=args.verbose,
+        force=args.force,
+    )
+
+
+def run_install(args: argparse.Namespace) -> None:
+    """Run installer mode."""
+
+    installer = TailscaleInstaller(build_installer_config(args))
+    installer.install()
+
+
+def run_uninstall(args: argparse.Namespace) -> None:
+    """Run uninstall mode."""
+
+    uninstaller = TailscaleUninstaller(
+        context=args.context,
+        verbose=args.verbose,
+    )
+    uninstaller.uninstall()
+
+
+def main(argv: Sequence[str] | None = None) -> int:
     """Main entry point.
 
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
-    parser = create_parser()
-    args = parser.parse_args()
 
     try:
+        args = parse_args(argv)
+        validate_args(args)
+
         if args.uninstall:
-            # Uninstall mode
-            if not args.context:
-                print("Error: --context is required for uninstall")
-                return 1
-
-            uninstaller = TailscaleUninstaller(
-                context=args.context,
-                verbose=args.verbose,
-            )
-            uninstaller.uninstall()
+            run_uninstall(args)
         else:
-            # Install mode
-            config = InstallerConfig(
-                auth_key=args.authkey,
-                cluster_name=args.cluster_name,
-                extra_args=args.extra_args,
-                context=args.context,
-                verbose=args.verbose,
-                force=args.force,
-            )
-
-            installer = TailscaleInstaller(config)
-            installer.install()
+            run_install(args)
 
         return 0
 

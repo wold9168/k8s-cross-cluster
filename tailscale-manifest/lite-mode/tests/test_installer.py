@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import patch
+from tailscale_installer import cli
 from tailscale_installer.config import InstallerConfig
 from tailscale_installer.installer import TailscaleInstaller
 
@@ -75,6 +76,114 @@ class TestInstallerConfig:
             cluster_name="test-cluster",
         )
         assert config.ts_extra_args == ""
+
+
+class TestCli:
+    """Tests for command-line handling."""
+
+    def test_parse_install_args(self):
+        """Install mode accepts install arguments."""
+        args = cli.parse_args([
+            "--authkey",
+            "tskey-test123",
+            "--cluster-name",
+            "test-cluster",
+            "--context",
+            "kind-test",
+            "--force",
+        ])
+
+        assert args.authkey == "tskey-test123"
+        assert args.cluster_name == "test-cluster"
+        assert args.context == "kind-test"
+        assert args.force is True
+        assert args.uninstall is False
+
+    def test_parse_uninstall_args_without_install_fields(self):
+        """Uninstall mode parses without install-only arguments."""
+        args = cli.parse_args([
+            "--uninstall",
+            "--context",
+            "kind-test",
+        ])
+
+        assert args.uninstall is True
+        assert args.context == "kind-test"
+        assert args.authkey is None
+        assert args.cluster_name is None
+
+    def test_validate_install_requires_authkey_and_cluster_name(self):
+        """Install mode requires auth key and cluster name."""
+        args = cli.parse_args([])
+
+        with pytest.raises(ValueError, match=r"install requires: --authkey, --cluster-name"):
+            cli.validate_args(args)
+
+    def test_validate_uninstall_requires_context(self):
+        """Uninstall mode requires a Kubernetes context."""
+        args = cli.parse_args(["--uninstall"])
+
+        with pytest.raises(ValueError, match="--context is required for uninstall"):
+            cli.validate_args(args)
+
+    def test_build_installer_config(self):
+        """Installer config is built directly from parsed args."""
+        args = cli.parse_args([
+            "--authkey",
+            "tskey-test123",
+            "--cluster-name",
+            "test-cluster",
+            "--extra-args",
+            "--operator admin",
+            "--context",
+            "kind-test",
+            "--verbose",
+            "--force",
+        ])
+
+        config = cli.build_installer_config(args)
+
+        assert config == InstallerConfig(
+            auth_key="tskey-test123",
+            cluster_name="test-cluster",
+            extra_args="--operator admin",
+            context="kind-test",
+            verbose=True,
+            force=True,
+        )
+
+    @patch("tailscale_installer.cli.run_install")
+    def test_main_runs_install_mode(self, mock_run_install):
+        """Main dispatches to install mode by default."""
+        exit_code = cli.main([
+            "--authkey",
+            "tskey-test123",
+            "--cluster-name",
+            "test-cluster",
+        ])
+
+        assert exit_code == 0
+        mock_run_install.assert_called_once()
+
+    @patch("tailscale_installer.cli.run_uninstall")
+    def test_main_runs_uninstall_mode(self, mock_run_uninstall):
+        """Main dispatches to uninstall mode without install-only args."""
+        exit_code = cli.main([
+            "--uninstall",
+            "--context",
+            "kind-test",
+        ])
+
+        assert exit_code == 0
+        mock_run_uninstall.assert_called_once()
+
+    def test_main_returns_error_for_invalid_args(self, capsys):
+        """Main reports validation errors consistently."""
+        exit_code = cli.main(["--uninstall"])
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Configuration error: --context is required for uninstall" in captured.out
 
 
 class TestTailscaleInstaller:
