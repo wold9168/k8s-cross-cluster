@@ -8,9 +8,10 @@
 
 ```bash
 # 假设你已经有了两个 k8s 集群，其 context 分别为 cluster1 和 cluster2
+# 并准备好了 Headscale login server 地址和可读节点列表的 API key
 cd tailscale-manifest/lite-mode
-make ARGS="--authkey your-headscale-preauth-key --extra-args='--login-server your-headscale-server-ip-and-port' --context cluster1 --cluster-name na" install
-make ARGS="--authkey your-headscale-preauth-key --extra-args='--login-server your-headscale-server-ip-and-port' --context cluster2 --cluster-name nb" install
+make ARGS="--authkey your-headscale-preauth-key --login-server https://your-headscale-server --headscale-api-key your-headscale-api-key --context cluster1 --cluster-name na" install
+make ARGS="--authkey your-headscale-preauth-key --login-server https://your-headscale-server --headscale-api-key your-headscale-api-key --context cluster2 --cluster-name nb" install
 # --cluster-name 影响对应集群在你的 headscale 中注册的 HostName
 # --cluster-name foo，意味着对应的实例在 headscale 中的注册名为 foo-tsgateway
 # 请确保 headscale 中没有重名节点
@@ -254,8 +255,8 @@ minikube start --driver=kvm2 --kvm-network=minikube-net2 --profile=cluster2 --ho
 minikube start --driver=kvm2 --profile=cluster2 --host-only-cidr=192.168.140.128/25 --service-cluster-ip-range=10.112.0.0/12 # 使得两个集群服务的 CIDR 错开
 
 cd tailscale-manifest/lite-mode
-make ARGS="--authkey your-headscale-preauth-key --extra-args='--login-server your-headscale-server-ip-and-port --advertise-route=10.96.0.0/12' --context cluster1 --cluster-name na" install # 10.96.0.0/12 是 k8s 创建服务所默认使用的 CIDR，集群创建时通过 --service-cluster-ip-range 参数控制
-make ARGS="--authkey your-headscale-preauth-key --extra-args='--login-server your-headscale-server-ip-and-port --advertise-routes=10.112.0.0/12' --context cluster2 --cluster-name nb" install
+make ARGS="--authkey your-headscale-preauth-key --login-server https://your-headscale-server --headscale-api-key your-headscale-api-key --extra-args='--advertise-route=10.96.0.0/12' --context cluster1 --cluster-name na" install # 10.96.0.0/12 是 k8s 创建服务所默认使用的 CIDR，集群创建时通过 --service-cluster-ip-range 参数控制
+make ARGS="--authkey your-headscale-preauth-key --login-server https://your-headscale-server --headscale-api-key your-headscale-api-key --extra-args='--advertise-routes=10.112.0.0/12' --context cluster2 --cluster-name nb" install
 
 kubectl create deployment kubernetes-bootcamp --image=gcr.io/google-samples/kubernetes-bootcamp:v1 --context cluster1
 kubectl expose deployment kubernetes-bootcamp --port=80 --target-port=8080 --name=k8sbc --context cluster1

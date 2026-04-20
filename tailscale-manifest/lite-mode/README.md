@@ -9,10 +9,10 @@ Python-based installer for Tailscale Kubernetes manifests, managed with `uv`.
 make setup
 
 # Install Tailscale
-make ARGS="--authkey tskey-xxx --cluster-name my-cluster" install
+make ARGS="--authkey tskey-xxx --cluster-name my-cluster --login-server https://headscale.example.com --headscale-api-key hskey-xxx" install
 
 # Or use uv directly
-uv run tailscale-install --authkey tskey-xxx --cluster-name my-cluster
+uv run tailscale-install --authkey tskey-xxx --cluster-name my-cluster --login-server https://headscale.example.com --headscale-api-key hskey-xxx
 ```
 
 ## Requirements
@@ -40,7 +40,7 @@ uv run tailscale-install --help
 make setup
 
 # Install
-make ARGS="--authkey tskey-xxx --cluster-name my-cluster" install
+make ARGS="--authkey tskey-xxx --cluster-name my-cluster --login-server https://headscale.example.com --headscale-api-key hskey-xxx" install
 
 # Uninstall
 make CONTEXT=my-context uninstall
@@ -50,31 +50,43 @@ make CONTEXT=my-context uninstall
 
 ```bash
 # Basic installation
-uv run tailscale-install --authkey <TS_AUTHKEY> --cluster-name <CLUSTER_NAME>
-
-# With custom login server
 uv run tailscale-install \
   --authkey <TS_AUTHKEY> \
   --cluster-name <CLUSTER_NAME> \
-  --login-server https://my-login-server.example.com
+  --login-server <HEADSCALE_LOGIN_SERVER> \
+  --headscale-api-key <HEADSCALE_API_KEY>
 
 # With specific context
 uv run tailscale-install \
   --authkey <TS_AUTHKEY> \
   --cluster-name <CLUSTER_NAME> \
+  --login-server https://my-login-server.example.com \
+  --headscale-api-key <HEADSCALE_API_KEY> \
   --context my-cluster-context
 
 # Verbose output
 uv run tailscale-install \
   --authkey <TS_AUTHKEY> \
   --cluster-name <CLUSTER_NAME> \
+  --login-server <HEADSCALE_LOGIN_SERVER> \
+  --headscale-api-key <HEADSCALE_API_KEY> \
   --verbose
 
 # Force reinstall
 uv run tailscale-install \
   --authkey <TS_AUTHKEY> \
   --cluster-name <CLUSTER_NAME> \
+  --login-server <HEADSCALE_LOGIN_SERVER> \
+  --headscale-api-key <HEADSCALE_API_KEY> \
   --force
+
+# Additional Tailscale flags
+uv run tailscale-install \
+  --authkey <TS_AUTHKEY> \
+  --cluster-name <CLUSTER_NAME> \
+  --login-server <HEADSCALE_LOGIN_SERVER> \
+  --headscale-api-key <HEADSCALE_API_KEY> \
+  --extra-args "--operator admin --advertise-routes=10.96.0.0/12"
 
 # Uninstall
 uv run tailscale-install --uninstall --context my-cluster-context
@@ -84,9 +96,11 @@ uv run tailscale-install --uninstall --context my-cluster-context
 
 | Option | Description | Required |
 |--------|-------------|----------|
-| `--authkey` | Tailscale authentication key | Yes |
-| `--cluster-name` | Cluster name for identification | Yes |
-| `--login-server` | Tailscale login server URL | No |
+| `--authkey` | Tailscale authentication key | Yes (install) |
+| `--cluster-name` | Cluster name for identification | Yes (install) |
+| `--login-server` | Headscale login server URL | Yes (install) |
+| `--headscale-api-key` | Headscale API key for duplicate checks | Yes (install) |
+| `--extra-args` | Additional Tailscale flags except `--login-server` | No |
 | `--context` | Kubernetes cluster context | No (uses current) |
 | `-v, --verbose` | Enable verbose output | No |
 | `--force` | Force installation even if resources exist | No |
@@ -127,7 +141,7 @@ The Python installer (`tailscale-install`) replaces `apply-tailscale.sh` with th
 ./apply-tailscale.sh --authkey tskey-xxx --cluster-name my-cluster
 
 # New Python installer
-uv run tailscale-install --authkey tskey-xxx --cluster-name my-cluster
+uv run tailscale-install --authkey tskey-xxx --cluster-name my-cluster --login-server https://headscale.example.com --headscale-api-key hskey-xxx
 ```
 
 All options and behaviors are preserved.

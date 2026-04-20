@@ -16,10 +16,10 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster
-  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --extra-args "--login-server https://login.example.com"
-  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --extra-args "--login-server https://login.example.com --operator admin" --context my-cluster-context -v
-  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --force
+  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --login-server https://login.example.com --headscale-api-key hskey-1234567890
+  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --login-server https://login.example.com --headscale-api-key hskey-1234567890 --extra-args "--operator admin"
+  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --login-server https://login.example.com --headscale-api-key hskey-1234567890 --context my-cluster-context -v
+  %(prog)s --authkey tskey-1234567890 --cluster-name my-cluster --login-server https://login.example.com --headscale-api-key hskey-1234567890 --force
   %(prog)s --uninstall --context my-cluster-context
         """,
     )
@@ -33,8 +33,16 @@ Examples:
         help="Cluster name for identification (required for install)",
     )
     parser.add_argument(
+        "--login-server",
+        help="Headscale login server URL (required for install)",
+    )
+    parser.add_argument(
+        "--headscale-api-key",
+        help="Headscale API key used for duplicate node checks (required for install)",
+    )
+    parser.add_argument(
         "--extra-args",
-        help="Extra arguments for Tailscale, space-separated (optional, e.g., '--login-server https://login.example.com --operator admin')",
+        help="Extra arguments for Tailscale, space-separated (optional, e.g., '--operator admin')",
     )
     parser.add_argument(
         "--context",
@@ -72,6 +80,8 @@ def _get_missing_install_args(args: argparse.Namespace) -> list[str]:
     required_args = {
         "--authkey": args.authkey,
         "--cluster-name": args.cluster_name,
+        "--login-server": args.login_server,
+        "--headscale-api-key": args.headscale_api_key,
     }
     return [flag for flag, value in required_args.items() if not value]
 
@@ -96,6 +106,8 @@ def build_installer_config(args: argparse.Namespace) -> InstallerConfig:
     return InstallerConfig(
         auth_key=args.authkey,
         cluster_name=args.cluster_name,
+        login_server=args.login_server,
+        headscale_api_key=args.headscale_api_key,
         extra_args=args.extra_args,
         context=args.context,
         verbose=args.verbose,

@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import patch
 from tailscale_installer import cli
 from tailscale_installer.config import InstallerConfig
+from tailscale_installer.headscale import HeadscaleClient, HeadscaleNode
 from tailscale_installer.installer import TailscaleInstaller
 
 
@@ -24,12 +25,16 @@ class TestInstallerConfig:
         config = InstallerConfig(
             auth_key="tskey-test123",
             cluster_name="test-cluster",
-            extra_args="--login-server https://login.example.com --operator admin",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
+            extra_args="--operator admin",
             context="test-context",
             verbose=True,
             force=True,
         )
-        assert config.extra_args == "--login-server https://login.example.com --operator admin"
+        assert config.login_server == "https://login.example.com"
+        assert config.headscale_api_key == "hskey-test123"
+        assert config.extra_args == "--operator admin"
         assert config.context == "test-context"
         assert config.verbose is True
         assert config.force is True
@@ -39,6 +44,8 @@ class TestInstallerConfig:
         config = InstallerConfig(
             auth_key="",
             cluster_name="test-cluster",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
         )
         with pytest.raises(ValueError, match="auth_key is required"):
             config.validate()
@@ -48,8 +55,30 @@ class TestInstallerConfig:
         config = InstallerConfig(
             auth_key="tskey-test123",
             cluster_name="",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
         )
         with pytest.raises(ValueError, match="cluster_name is required"):
+            config.validate()
+
+    def test_validate_missing_login_server(self):
+        """Test validation fails with missing login server."""
+        config = InstallerConfig(
+            auth_key="tskey-test123",
+            cluster_name="test-cluster",
+            headscale_api_key="hskey-test123",
+        )
+        with pytest.raises(ValueError, match="login_server is required"):
+            config.validate()
+
+    def test_validate_missing_headscale_api_key(self):
+        """Test validation fails with missing Headscale API key."""
+        config = InstallerConfig(
+            auth_key="tskey-test123",
+            cluster_name="test-cluster",
+            login_server="https://login.example.com",
+        )
+        with pytest.raises(ValueError, match="headscale_api_key is required"):
             config.validate()
 
     def test_ts_hostname(self):
@@ -65,7 +94,9 @@ class TestInstallerConfig:
         config = InstallerConfig(
             auth_key="tskey-test123",
             cluster_name="test-cluster",
-            extra_args="--login-server https://login.example.com --operator admin",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
+            extra_args="--operator admin",
         )
         assert config.ts_extra_args == "--login-server https://login.example.com --operator admin"
 
@@ -74,8 +105,22 @@ class TestInstallerConfig:
         config = InstallerConfig(
             auth_key="tskey-test123",
             cluster_name="test-cluster",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
         )
-        assert config.ts_extra_args == ""
+        assert config.ts_extra_args == "--login-server https://login.example.com"
+
+    def test_ts_extra_args_supports_legacy_login_server_in_extra_args(self):
+        """Legacy login-server values in extra_args are still supported."""
+        config = InstallerConfig(
+            auth_key="tskey-test123",
+            cluster_name="test-cluster",
+            headscale_api_key="hskey-test123",
+            extra_args="--login-server https://legacy.example.com --operator admin",
+        )
+
+        assert config.effective_login_server == "https://legacy.example.com"
+        assert config.ts_extra_args == "--login-server https://legacy.example.com --operator admin"
 
 
 class TestCli:
@@ -88,6 +133,10 @@ class TestCli:
             "tskey-test123",
             "--cluster-name",
             "test-cluster",
+            "--login-server",
+            "https://login.example.com",
+            "--headscale-api-key",
+            "hskey-test123",
             "--context",
             "kind-test",
             "--force",
@@ -95,6 +144,8 @@ class TestCli:
 
         assert args.authkey == "tskey-test123"
         assert args.cluster_name == "test-cluster"
+        assert args.login_server == "https://login.example.com"
+        assert args.headscale_api_key == "hskey-test123"
         assert args.context == "kind-test"
         assert args.force is True
         assert args.uninstall is False
@@ -116,7 +167,10 @@ class TestCli:
         """Install mode requires auth key and cluster name."""
         args = cli.parse_args([])
 
-        with pytest.raises(ValueError, match=r"install requires: --authkey, --cluster-name"):
+        with pytest.raises(
+            ValueError,
+            match=r"install requires: --authkey, --cluster-name, --login-server, --headscale-api-key",
+        ):
             cli.validate_args(args)
 
     def test_validate_uninstall_requires_context(self):
@@ -133,6 +187,10 @@ class TestCli:
             "tskey-test123",
             "--cluster-name",
             "test-cluster",
+            "--login-server",
+            "https://login.example.com",
+            "--headscale-api-key",
+            "hskey-test123",
             "--extra-args",
             "--operator admin",
             "--context",
@@ -146,6 +204,8 @@ class TestCli:
         assert config == InstallerConfig(
             auth_key="tskey-test123",
             cluster_name="test-cluster",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
             extra_args="--operator admin",
             context="kind-test",
             verbose=True,
@@ -160,6 +220,10 @@ class TestCli:
             "tskey-test123",
             "--cluster-name",
             "test-cluster",
+            "--login-server",
+            "https://login.example.com",
+            "--headscale-api-key",
+            "hskey-test123",
         ])
 
         assert exit_code == 0
@@ -194,6 +258,8 @@ class TestTailscaleInstaller:
         config = InstallerConfig(
             auth_key="tskey-test123",
             cluster_name="test-cluster",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
         )
         installer = TailscaleInstaller(config, manifest_dir=".")
         assert installer.config == config
@@ -204,9 +270,110 @@ class TestTailscaleInstaller:
         config = InstallerConfig(
             auth_key="tskey-test123",
             cluster_name="test-cluster",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
         )
         installer = TailscaleInstaller(config, manifest_dir=str(tmp_path))
         assert installer.manifest_dir == tmp_path
+
+    @patch("tailscale_installer.installer.HeadscaleClient")
+    def test_ensure_headscale_node_available(self, mock_headscale_client):
+        """Installer checks Headscale node availability before install."""
+        mock_headscale_client.return_value.node_exists.return_value = False
+        config = InstallerConfig(
+            auth_key="tskey-test123",
+            cluster_name="test-cluster",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
+        )
+        installer = TailscaleInstaller(config, manifest_dir=".")
+
+        installer.ensure_headscale_node_available()
+
+        mock_headscale_client.assert_called_once_with(
+            base_url="https://login.example.com",
+            api_key="hskey-test123",
+        )
+        mock_headscale_client.return_value.node_exists.assert_called_once_with("test-cluster-tsgateway")
+
+    @patch("tailscale_installer.installer.HeadscaleClient")
+    def test_ensure_headscale_node_available_raises_for_duplicate(self, mock_headscale_client):
+        """Installer refuses to continue when Headscale already has the hostname."""
+        mock_headscale_client.return_value.node_exists.return_value = True
+        config = InstallerConfig(
+            auth_key="tskey-test123",
+            cluster_name="test-cluster",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
+        )
+        installer = TailscaleInstaller(config, manifest_dir=".")
+
+        with pytest.raises(RuntimeError, match="Headscale already has a node named 'test-cluster-tsgateway'"):
+            installer.ensure_headscale_node_available()
+
+    @patch.object(TailscaleInstaller, "apply_static_manifest")
+    @patch.object(TailscaleInstaller, "apply_manifest_content")
+    @patch.object(TailscaleInstaller, "ensure_headscale_node_available")
+    @patch.object(TailscaleInstaller, "check_existing_installation")
+    @patch.object(TailscaleInstaller, "get_effective_context")
+    @patch.object(TailscaleInstaller, "validate_prerequisites")
+    @patch.object(TailscaleInstaller, "generate_cluster_name_configmap")
+    @patch.object(TailscaleInstaller, "generate_extra_args_configmap")
+    @patch.object(TailscaleInstaller, "generate_auth_secret")
+    def test_install_checks_headscale_before_apply(
+        self,
+        mock_generate_auth_secret,
+        mock_generate_extra_args_configmap,
+        mock_generate_cluster_name_configmap,
+        mock_validate_prerequisites,
+        mock_get_effective_context,
+        mock_check_existing_installation,
+        mock_ensure_headscale_node_available,
+        mock_apply_manifest_content,
+        mock_apply_static_manifest,
+    ):
+        """Install performs Headscale duplicate checks before applying manifests."""
+        mock_get_effective_context.return_value = "kind-test"
+        mock_check_existing_installation.return_value = []
+        mock_generate_auth_secret.return_value = "auth-secret"
+        mock_generate_extra_args_configmap.return_value = "extra-args"
+        mock_generate_cluster_name_configmap.return_value = "cluster-name"
+        config = InstallerConfig(
+            auth_key="tskey-test123",
+            cluster_name="test-cluster",
+            login_server="https://login.example.com",
+            headscale_api_key="hskey-test123",
+        )
+        installer = TailscaleInstaller(config, manifest_dir=".")
+
+        installer.install()
+
+        mock_validate_prerequisites.assert_called_once()
+        mock_get_effective_context.assert_called_once()
+        mock_check_existing_installation.assert_called_once()
+        mock_ensure_headscale_node_available.assert_called_once()
+        mock_apply_static_manifest.assert_any_call(installer.RBAC_FILE)
+        mock_apply_static_manifest.assert_any_call(installer.USERSPACE_PROXY_FILE)
+
+
+class TestHeadscaleClient:
+    """Tests for Headscale duplicate-node checks."""
+
+    def test_node_exists_matches_name_and_given_name(self):
+        """Duplicate checks match either node name field returned by Headscale."""
+        client = HeadscaleClient("https://headscale.example.com", "hskey-test123")
+
+        with patch.object(
+            client,
+            "list_nodes",
+            return_value=[
+                HeadscaleNode(name="alpha-tsgateway"),
+                HeadscaleNode(given_name="beta-tsgateway"),
+            ],
+        ):
+            assert client.node_exists("alpha-tsgateway") is True
+            assert client.node_exists("beta-tsgateway") is True
+            assert client.node_exists("gamma-tsgateway") is False
 
 
 class TestGenerateExtraArgsConfigmap:
