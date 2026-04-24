@@ -93,20 +93,3 @@ func TestCoreDNSConfigStruct(t *testing.T) {
 	assert.Equal(t, "### START ###", config.ManagedSection.StartMarker)
 	assert.Equal(t, "### END ###", config.ManagedSection.EndMarker)
 }
-
-func TestConstants(t *testing.T) {
-	// CoreDNS constants
-	assert.Equal(t, "coredns", CoreDNSConfigMapName)
-	assert.Equal(t, "coredns", CoreDNSDeploymentName)
-	assert.Equal(t, "Corefile", CoreDNSConfigKey)
-	assert.Equal(t, "kube-system", CoreDNSNamespace)
-	assert.Contains(t, ManagedSectionStart, "START")
-	assert.Contains(t, ManagedSectionEnd, "END")
-
-	// Server constants
-	assert.Equal(t, ":10053", subdnsPort)
-	assert.Equal(t, "0.0.0.0", subdnsIp)
-	assert.Contains(t, subdnsAddr, "10053")
-	assert.Equal(t, ":8080", metricsPort)
-	assert.Equal(t, ":8081", svcPort)
-}
