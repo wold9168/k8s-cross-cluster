@@ -29,14 +29,14 @@ spec:
       targetPort: 10053
       protocol: UDP
     - name: coredns-http
-      port: 8080
-      targetPort: 8080
+      port: 31080
+      targetPort: 31080
     - name: coredns-config-manager-metrics
       port: 8081
       targetPort: 8081
     - name: caddy-config-manager-metrics
-      port: 8082
-      targetPort: 8082
+      port: 31082
+      targetPort: 31082
   type: ClusterIP  # 仅集群内可访问
 ---
 apiVersion: apps/v1
@@ -126,7 +126,7 @@ spec:
             - containerPort: 10053
               name: dns-udp
               protocol: UDP
-            - containerPort: 8080
+            - containerPort: 31080
               name: http
             - containerPort: 8081
               name: metrics
@@ -158,6 +158,9 @@ spec:
         - name: caddy-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:latest
           imagePullPolicy: Always
+          ports:
+            - containerPort: 31082
+              name: metrics
           volumeMounts:
             - name: shared-caddy-config
               mountPath: /config

@@ -24,8 +24,8 @@
 - CI 在 `.github/workflows/docker-build.yml` 中调用根目录 `Makefile`；如果改了镜像名、tag 或构建目标，要同时更新这两处。
 
 ## 运行时连接关系
-- `sidecar/caddy-config-manager` 会写入 `/config/Caddyfile`，通过 `http://localhost:2019/reload` 触发 Caddy 重载，对外 API 监听 `:8081`，metrics 监听 `:8082`。
-- `sidecar/coredns-config-manager` 提供 UDP DNS `:10053`、metrics `:8080`、服务发现 API `:8081`，并更新 `kube-system/coredns` 这个 CoreDNS ConfigMap。
+- `sidecar/caddy-config-manager` 会写入 `/config/Caddyfile`，通过 `http://localhost:2019/reload` 触发 Caddy 重载，对外 API 监听 `:8081`，metrics 监听 `:31082`。
+- `sidecar/coredns-config-manager` 提供 UDP DNS `:10053`、metrics `:31080`、服务发现 API `:8081`，并更新 `kube-system/coredns` 这个 CoreDNS ConfigMap。
 - 跨集群发现是 sidecar 之间互通：`coredns-config-manager` 通过 SOCKS5 `127.0.0.1:1055` 访问远端 `/svc`，`caddy-config-manager` 基于本地 Service 生成 `<service>.<namespace>.svc.<cluster>.remote` 和 `.clusterset.remote` 域名映射。
 
 ## 生成文件
