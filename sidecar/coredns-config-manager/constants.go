@@ -18,7 +18,7 @@ const (
 	subdnsPort     = ":10053"
 	subdnsIp       = "0.0.0.0"
 	subdnsAddr     = subdnsIp + subdnsPort
-	metricsPort    = ":31080"
+	metricsPort    = ":8080"
 	metricsIp      = "0.0.0.0"
 	metricsAddr    = metricsIp + metricsPort
 	svcPort        = ":8081"

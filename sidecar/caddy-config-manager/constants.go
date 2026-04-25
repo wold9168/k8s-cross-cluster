@@ -7,7 +7,7 @@ const (
 	syncInterval    = 10 * time.Second
 	syncIntervalKey = "SYNC_INTERVAL"
 
-	metricsPort = ":31082"
+	metricsPort = ":8082"
 	metricsIp   = "0.0.0.0"
 	metricsAddr = metricsIp + metricsPort
 
