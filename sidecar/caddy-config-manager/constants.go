@@ -7,7 +7,7 @@ const (
 	syncInterval    = 10 * time.Second
 	syncIntervalKey = "SYNC_INTERVAL"
 
-	metricsPort = ":8082"
+	metricsPort = ":8090"
 	metricsIp   = "0.0.0.0"
 	metricsAddr = metricsIp + metricsPort
 
@@ -21,7 +21,7 @@ const (
 	caddyAdminPortKey = "CADDY_ADMIN_PORT"
 
 	// API server configuration
-	apiPort = ":8081"
+	apiPort = ":8091"
 	apiIp   = "0.0.0.0"
 	apiAddr = apiIp + apiPort
 )

@@ -11,7 +11,7 @@
         },
         "version": "1.0"
     },
-    "host": "localhost:8081",
+    "host": "localhost:8091",
     "basePath": "/",
     "paths": {
         "/config": {
