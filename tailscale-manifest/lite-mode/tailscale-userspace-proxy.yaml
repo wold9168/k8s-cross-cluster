@@ -28,15 +28,18 @@ spec:
       port: 10053
       targetPort: 10053
       protocol: UDP
-    - name: coredns-http
+    - name: coredns-config-manager-metrics
       port: 8080
       targetPort: 8080
-    - name: coredns-config-manager-metrics
+    - name: coredns-config-manager-svc
       port: 8081
       targetPort: 8081
     - name: caddy-config-manager-metrics
-      port: 8082
-      targetPort: 8082
+      port: 8090
+      targetPort: 8090
+    - name: caddy-config-manager-svc
+      port: 8091
+      targetPort: 8091
   type: ClusterIP  # 仅集群内可访问
 ---
 apiVersion: apps/v1
@@ -127,9 +130,9 @@ spec:
               name: dns-udp
               protocol: UDP
             - containerPort: 8080
-              name: http
-            - containerPort: 8081
               name: metrics
+            - containerPort: 8081
+              name: svc
           volumeMounts:
             - name: tailscale-socket
               mountPath: /run/tailscale
@@ -158,6 +161,11 @@ spec:
         - name: caddy-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:latest
           imagePullPolicy: Always
+          ports:
+            - containerPort: 8090
+              name: metrics
+            - containerPort: 8091
+              name: svc
           volumeMounts:
             - name: shared-caddy-config
               mountPath: /config
