@@ -25,16 +25,12 @@ just install-all "cluster1:na cluster2:nb"
 kubectl create deployment kubernetes-bootcamp --image=gcr.io/google-samples/kubernetes-bootcamp:v1 --context cluster1
 kubectl expose deployment kubernetes-bootcamp --port=80 --target-port=8080 --name=k8sbc --context cluster1
 
-# 在 cluster2 中拉取 debian:12 作为测试镜像
-kubectl --context cluster2 run -it --rm \
-  --image=debian:12 \
-  --restart=Never \
-  debian-test \
-  -- bash
-# 以下指令在 debian-test 测试镜像中进行
-$ apt update && apt install -y curl
+# 在任意一个集群中启动 debian 测试 Pod 验证连通性
+# remote 参数与安装时传入的 --cluster-name 一致（此处为 na）
+just test-debian cluster2 na
+# 进入 Pod 后执行：
 $ curl -x socks5://tailscale-proxy.default.svc.cluster.local:1055 -k -v https://k8sbc.default.svc.na.remote
-# 使用 服务名.命名空间.svc.tailscale节点名（无-tsgateway后缀）.remote 作为远程连接的域名
+# 域名格式：服务名.命名空间.svc.<cluster-name>.remote（安装时 --cluster-name 传入的值）
 $ exit
 
 # 清理现场，卸载服务（单集群）

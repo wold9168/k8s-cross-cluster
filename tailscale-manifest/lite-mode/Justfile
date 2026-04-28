@@ -11,6 +11,18 @@
 CONTEXT := ""
 ARGS := ""
 
+# ——— 验证 ——————————————————————————————————————————
+
+# 启动 debian 测试 Pod 验证跨集群连通性
+# remote 与安装时传入的 --cluster-name 一致
+# 用法：just test-debian cluster2 na
+simple-integration-test ctx remote:
+    kubectl --context {{ctx}} run -it --rm \
+      --image=debian:12 \
+      --restart=Never \
+      debian-test \
+      -- bash -c "command -v curl >/dev/null || { apt update && apt install -y curl; } && echo 'Ready. Try: curl -x socks5://tailscale-proxy.default.svc.cluster.local:1055 -k -v https://k8sbc.default.svc.{{remote}}.remote' && exec bash"
+
 # ——— 帮助 ——————————————————————————————————————————
 # 默认目标：显示帮助
 default:
