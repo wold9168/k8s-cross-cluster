@@ -78,15 +78,15 @@ uninstall-legacy ctx:
 # 用法：just install-all "ctx1:name1 ctx2:name2 ctx3:name3"
 install-all clusters:
     @for pair in {{clusters}}; do \
-        IFS=: read -r ctx name <<< "$$pair"; \
-        echo ">>> Installing to context=$$ctx cluster-name=$$name"; \
+        IFS=: read -r ctx name <<< "$pair"; \
+        echo ">>> Installing to context=$ctx cluster-name=$name"; \
         uv run tailscale-install \
             --authkey "$TS_AUTHKEY" \
             --login-server "$TS_LOGIN_SERVER" \
             --headscale-api-key "$HEADSCALE_API_KEY" \
-            --context "$$ctx" \
-            --cluster-name "$$name" \
-            || echo "ERR: $$ctx failed, continuing..."; \
+            --context "$ctx" \
+            --cluster-name "$name" \
+            || echo "ERR: $ctx failed, continuing..."; \
     done
     @echo "Batch install done."
 
@@ -95,10 +95,10 @@ install-all clusters:
 # 用法：just uninstall-all "ctx1:name1 ctx2:name2 ctx3:name3"
 uninstall-all clusters:
     @for pair in {{clusters}}; do \
-        IFS=: read -r ctx name <<< "$$pair"; \
-        echo ">>> Uninstalling from context=$$ctx"; \
+        IFS=: read -r ctx name <<< "$pair"; \
+        echo ">>> Uninstalling from context=$ctx"; \
         uv run tailscale-install --uninstall \
-            --context "$$ctx" \
-            || echo "ERR: $$ctx failed, continuing..."; \
+            --context "$ctx" \
+            || echo "ERR: $ctx failed, continuing..."; \
     done
     @echo "Batch uninstall done."
