@@ -191,6 +191,8 @@ func (dcm *DNSConfigManager) Sync(ctx context.Context) error {
 	clusterCount := dcm.loadBalancer.GetClusterCount()
 
 	dcm.metricsManager.UpdateDNSRecordCount(recordCount)
+	dcm.metricsManager.UpdateServiceCount(serviceCount)
+	dcm.metricsManager.UpdateClusterCount(clusterCount)
 	klog.Infof("Updated metrics: DNS record count = %d, Services = %d, Clusters = %d",
 		recordCount, serviceCount, clusterCount)
 
