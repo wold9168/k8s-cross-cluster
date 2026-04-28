@@ -9,15 +9,15 @@
 - 根目录回归测试：`make test`
 - 单个 Go 模块：在对应模块目录执行 `go test ./...`
 - `lib/k8sclient` 在根目录 `Makefile` 里实际执行的是 `go test -v .`，不是 `./...`。
-- Python 安装器开发：进入 `tailscale-manifest/lite-mode` 后使用 `make setup-dev`、`make test`、`make lint`、`make format`
+- Python 安装器开发：进入 `tailscale-manifest/lite-mode` 后使用 `just setup-dev`、`just test`、`just lint`、`just format`（该目录已从 Makefile 迁移到 Justfile）
 - Sidecar 镜像构建：`make sidecar-image-build`、`make caddy-config-manager-image-build`、`make coredns-config-manager-image-build`
 - `sidecar/caddy-config-manager` 模块内可用 `make test` 和 `make binary-build`；`binary-build` 会产出 Linux 二进制 `caddy-config-manager`。
 
 ## Makefile 约定
 - 现有三个 Makefile 的默认目标都是 `help`；直接执行 `make` 只会显示帮助，不会自动测试或构建。
 - 根目录镜像构建默认使用 `TAG=$(git rev-parse HEAD)`、`REGISTRY=ghcr.io`；`REPO_NAME` 优先取 git remote 里的 GitHub 仓库名，取不到时回退为当前用户名。
-- `tailscale-manifest/lite-mode` 的安装参数通过 `make ARGS="..." install` 透传给 `uv run tailscale-install`。
-- `tailscale-manifest/lite-mode` 的卸载目标要求显式提供上下文：要么用 `make CONTEXT=... uninstall`，要么在 `ARGS` 中带 `--context ...`。
+- `tailscale-manifest/lite-mode` 的单集群安装通过 `just install --authkey ... --login-server ...` 直接透传给 `uv run tailscale-install`；多集群批量安装用 `just install-all "ctx1:name1 ctx2:name2"`，需预先 `export TS_AUTHKEY TS_LOGIN_SERVER HEADSCALE_API_KEY`。
+- `tailscale-manifest/lite-mode` 的卸载用 `just uninstall ctx=...`（单集群）或 `just uninstall-all "ctx1:name1 cx2:name2"`（批量）。注意 `--login-server` 是 installer 的顶层参数，不要塞进 `--extra-args`。
 
 ## 构建与 CI 注意点
 - Docker 构建上下文必须用仓库根目录。两个 sidecar 的 Dockerfile 都用了 `COPY ./../..`，如果在模块目录单独 `docker build` 会失败。

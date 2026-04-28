@@ -1,24 +1,30 @@
 # Tailscale Manifest Installer
 
 Python-based installer for Tailscale Kubernetes manifests, managed with `uv`.
+Build orchestration uses [just](https://github.com/casey/just).
 
 ## Quick Start
 
 ```bash
 # Set up the environment
-make setup
+just setup
 
-# Install Tailscale
-make ARGS="--authkey tskey-xxx --cluster-name my-cluster --login-server https://headscale.example.com --headscale-api-key hskey-xxx" install
+# Install Tailscale (single cluster)
+just install --authkey tskey-xxx --cluster-name my-cluster \
+  --login-server https://headscale.example.com \
+  --headscale-api-key hskey-xxx
 
 # Or use uv directly
-uv run tailscale-install --authkey tskey-xxx --cluster-name my-cluster --login-server https://headscale.example.com --headscale-api-key hskey-xxx
+uv run tailscale-install --authkey tskey-xxx --cluster-name my-cluster \
+  --login-server https://headscale.example.com \
+  --headscale-api-key hskey-xxx
 ```
 
 ## Requirements
 
 - Python 3.10+
 - `uv` package manager
+- `just` command runner (`brew install just` / `cargo install just` / etc.)
 - `kubectl` configured with cluster access
 
 ## Installation
@@ -33,17 +39,35 @@ uv sync
 uv run tailscale-install --help
 ```
 
-### Using Make
+### Using just
 
 ```bash
 # Setup
-make setup
+just setup
 
-# Install
-make ARGS="--authkey tskey-xxx --cluster-name my-cluster --login-server https://headscale.example.com --headscale-api-key hskey-xxx" install
+# Install (single cluster)
+just install --authkey tskey-xxx --cluster-name my-cluster \
+  --login-server https://headscale.example.com \
+  --headscale-api-key hskey-xxx
 
 # Uninstall
-make CONTEXT=my-context uninstall
+just uninstall ctx=my-context
+```
+
+## Multi-Cluster Batch Operations
+
+Set environment variables once, then operate on all clusters:
+
+```bash
+export TS_AUTHKEY="tskey-..."
+export TS_LOGIN_SERVER="http://headscale.example.com"
+export HEADSCALE_API_KEY="hskey-..."
+
+# Install to multiple clusters (context:cluster-name pairs)
+just install-all "ctx1:cluster1 ctx2:cluster2 ctx3:cluster3"
+
+# Uninstall from multiple clusters
+just uninstall-all "ctx1:cluster1 ctx2:cluster2 ctx3:cluster3"
 ```
 
 ## Usage
@@ -106,6 +130,8 @@ uv run tailscale-install --uninstall --context my-cluster-context
 | `--force` | Force installation even if resources exist | No |
 | `--uninstall` | Uninstall instead of install | No |
 
+> **注意**：`--login-server` 是 installer 的顶层参数，不要通过 `--extra-args` 传入。若直接将 `--login-server` 塞进 `--extra-args`，Python 安装器会报 `install requires: --login-server`。
+
 ## Architecture
 
 The installer is built with object-oriented design:
@@ -120,16 +146,16 @@ The installer is built with object-oriented design:
 
 ```bash
 # Install dev dependencies
-make setup-dev
+just setup-dev
 
 # Run tests
-make test
+just test
 
 # Format code
-make format
+just format
 
 # Lint code
-make lint
+just lint
 ```
 
 ## Migration from Shell Script
@@ -141,7 +167,9 @@ The Python installer (`tailscale-install`) replaces `apply-tailscale.sh` with th
 ./apply-tailscale.sh --authkey tskey-xxx --cluster-name my-cluster
 
 # New Python installer
-uv run tailscale-install --authkey tskey-xxx --cluster-name my-cluster --login-server https://headscale.example.com --headscale-api-key hskey-xxx
+uv run tailscale-install --authkey tskey-xxx --cluster-name my-cluster \
+  --login-server https://headscale.example.com \
+  --headscale-api-key hskey-xxx
 ```
 
 All options and behaviors are preserved.
