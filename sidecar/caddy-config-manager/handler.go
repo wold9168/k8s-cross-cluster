@@ -7,7 +7,7 @@
 // @contact.url    https://github.com/wold9168/k8s-cross-cluster
 // @contact.email  support@example.com
 
-// @host      localhost:8081
+// @host      localhost:8091
 // @BasePath  /
 
 // @securityDefinitions.basic BasicAuth

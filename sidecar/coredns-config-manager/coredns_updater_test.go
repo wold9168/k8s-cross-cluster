@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -39,6 +40,12 @@ func TestCoreDNSUpdater_EnsureConfig_UpdateNeeded(t *testing.T) {
 				"Corefile": ".:53 {\n    errors\n}\n",
 			},
 		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "coredns",
+				Namespace: "kube-system",
+			},
+		},
 	)
 
 	config := CoreDNSConfig{
@@ -51,9 +58,7 @@ func TestCoreDNSUpdater_EnsureConfig_UpdateNeeded(t *testing.T) {
 	updater := NewCoreDNSUpdater(clientset, config)
 	err := updater.EnsureConfig(ctx, "10.0.0.1:10053")
 
-	// Fake clientset doesn't actually update deployments
-	// so this may fail at rollout step, but tests the logic
-	assert.Error(t, err) // Expected to fail at rollout since deployment doesn't exist
+	assert.NoError(t, err)
 }
 
 func TestCoreDNSUpdater_EnsureConfig_ConfigMapNotFound(t *testing.T) {
@@ -192,6 +197,12 @@ func TestCoreDNSUpdater_EnsureConfig_ValidationWarning(t *testing.T) {
 				"Corefile": invalidCorefile,
 			},
 		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "coredns",
+				Namespace: "kube-system",
+			},
+		},
 	)
 
 	config := CoreDNSConfig{
@@ -205,5 +216,5 @@ func TestCoreDNSUpdater_EnsureConfig_ValidationWarning(t *testing.T) {
 	err := updater.EnsureConfig(ctx, "10.0.0.1:10053")
 
 	// Should still proceed despite validation warning
-	assert.Error(t, err) // Will fail at rollout
+	assert.NoError(t, err)
 }

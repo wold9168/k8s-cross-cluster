@@ -1,8 +1,12 @@
 package metrics
 
 import (
+	"fmt"
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
+
+	metricslib "github.com/wold9168/k8s-cross-cluster/lib/metrics"
 	"k8s.io/klog/v2"
 )
 
@@ -34,7 +38,7 @@ func Init() *Manager {
 }
 
 // GetCollector 获取指标收集器
-func (m *Manager) GetCollector() *MetricsCollector {
+func (m *Manager) GetCollector() prometheus.Collector {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.collector
@@ -54,10 +58,10 @@ func (m *Manager) UpdateServiceCount(count int) {
 	m.collector.SetServiceCount(count)
 }
 
-// Start 启动 metrics HTTP 服务器
+// Start 启动 metrics HTTP 服务器（不加锁，因为 StartServer 只读取初始化后的不可变 collector）
 func (m *Manager) Start(addr string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	return StartServer(addr, m.collector)
+	if m.collector == nil {
+		return fmt.Errorf("collector not initialized")
+	}
+	return metricslib.StartServer(addr, m.collector)
 }

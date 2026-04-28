@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/netip"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -175,6 +176,11 @@ func (sd *ServiceDiscovery) GetServiceEndpoints(serviceName, namespace string) [
 			}
 		}
 	}
+
+	// Sort by cluster name to ensure deterministic round-robin ordering
+	sort.Slice(endpoints, func(i, j int) bool {
+		return endpoints[i].ClusterName < endpoints[j].ClusterName
+	})
 
 	klog.V(4).Infof("Found %d endpoints for service %s.%s", len(endpoints), serviceName, namespace)
 	return endpoints

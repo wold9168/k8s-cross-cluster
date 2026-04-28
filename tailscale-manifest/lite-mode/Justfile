@@ -1,0 +1,116 @@
+# k8s-cross-cluster Tailscale Installer — Justfile
+#
+# 环境变量（install-all / uninstall-all 批量操作前设置）：
+#   export TS_AUTHKEY="tskey-..."
+#   export TS_LOGIN_SERVER="http://headscale.example.com"  # 注意：不带路径，不含 /oidc 等后缀
+#   export HEADSCALE_API_KEY="hskey-..."
+#
+# 单集群 install/uninstall 直接用 recipe 参数即可。
+
+# 全局默认值
+CONTEXT := ""
+ARGS := ""
+
+# ——— 验证 ——————————————————————————————————————————
+
+# 启动 debian 测试 Pod 验证跨集群连通性
+# remote 与安装时传入的 --cluster-name 一致
+# 用法：just test-debian cluster2 na
+simple-integration-test ctx remote:
+    kubectl --context {{ctx}} run -it --rm \
+      --image=debian:12 \
+      --restart=Never \
+      debian-test \
+      -- bash -c "command -v curl >/dev/null || { apt update && apt install -y curl; } && echo 'Ready. Try: curl -x socks5://tailscale-proxy.default.svc.cluster.local:1055 -k -v https://k8sbc.default.svc.{{remote}}.remote' && exec bash"
+
+# ——— 帮助 ——————————————————————————————————————————
+# 默认目标：显示帮助
+default:
+    @just --list
+
+# ——— 开发环境 ——————————————————————————————————————
+
+# 安装运行时依赖
+setup:
+    @echo "Setting up Python environment with uv..."
+    uv sync
+    @echo "Setup complete. Run 'just --list' for available commands."
+
+# 安装开发依赖（含 pytest / ruff）
+setup-dev:
+    @echo "Setting up development environment..."
+    uv sync --dev
+    @echo "Development setup complete."
+
+# ——— 测试 / 格式化 / Lint ———————————————————
+
+# 运行测试
+test:
+    uv run pytest
+
+# 格式化代码
+format:
+    uv run ruff format src/
+
+# Lint 检查
+lint:
+    uv run ruff check src/
+
+# ——— 单集群安装 / 卸载 —————————————————————————————
+
+# 安装到当前（或指定的）集群
+# 用法：just install --authkey tskey-xxx --cluster-name my-cluster --login-server http://h.example.com --headscale-api-key hskey-xxx
+install *args:
+    @echo "Installing k8s-cross-cluster components..."
+    uv run tailscale-install {{args}}
+
+# 卸载
+# 用法：just uninstall ctx=my-context
+uninstall ctx="":
+    @if [ -z "{{ctx}}" ]; then \
+        echo "Error: ctx is required. Usage: just uninstall ctx=my-context"; \
+        exit 1; \
+    fi
+    uv run tailscale-install --uninstall --context {{ctx}}
+
+# 传统卸载（直接用 kubectl delete）- 兜底方案
+uninstall-legacy ctx:
+    @echo "Uninstalling from context {{ctx}}..."
+    kubectl --context {{ctx}} delete -f tailscale-userspace-proxy.yaml || true
+    kubectl --context {{ctx}} delete -f tailscale-rbac.yaml || true
+    kubectl --context {{ctx}} delete -f tailscale-extra-args-configmap.yaml || true
+    kubectl --context {{ctx}} delete -f tailscale-auth-secret.yaml || true
+    kubectl --context {{ctx}} delete -f tailscale-cluster-name-configmap.yaml || true
+    kubectl --context {{ctx}} delete all -l name=k8s-cross-cluster || true
+
+# ——— 批量多集群操作（reference.sh 内容已整合至此）—————
+
+# 批量安装到多个集群
+# 使用前先 export TS_AUTHKEY TS_LOGIN_SERVER HEADSCALE_API_KEY
+# 用法：just install-all "ctx1:name1 ctx2:name2 ctx3:name3"
+install-all clusters:
+    @for pair in {{clusters}}; do \
+        IFS=: read -r ctx name <<< "$pair"; \
+        echo ">>> Installing to context=$ctx cluster-name=$name"; \
+        uv run tailscale-install \
+            --authkey "$TS_AUTHKEY" \
+            --login-server "$TS_LOGIN_SERVER" \
+            --headscale-api-key "$HEADSCALE_API_KEY" \
+            --context "$ctx" \
+            --cluster-name "$name" \
+            || echo "ERR: $ctx failed, continuing..."; \
+    done
+    @echo "Batch install done."
+
+# 批量从多个集群卸载
+# 使用前先 export TS_AUTHKEY TS_LOGIN_SERVER
+# 用法：just uninstall-all "ctx1:name1 ctx2:name2 ctx3:name3"
+uninstall-all clusters:
+    @for pair in {{clusters}}; do \
+        IFS=: read -r ctx name <<< "$pair"; \
+        echo ">>> Uninstalling from context=$ctx"; \
+        uv run tailscale-install --uninstall \
+            --context "$ctx" \
+            || echo "ERR: $ctx failed, continuing..."; \
+    done
+    @echo "Batch uninstall done."

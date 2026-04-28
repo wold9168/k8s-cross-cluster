@@ -35,5 +35,6 @@ const (
 
 // Proxy configuration constants
 const (
-	SOCKS5Proxy = "127.0.0.1:1055"
+	SOCKS5Proxy          = "127.0.0.1:1055"
+	TailscaleProxyService = "tailscale-proxy"
 )

@@ -1,15 +1,5 @@
-basePath: /
-host: localhost:8081
 info:
-  contact:
-    email: support@example.com
-    name: API Support
-    url: https://github.com/wold9168/k8s-cross-cluster
-  description: API for managing Caddy configuration and service discovery in Kubernetes
-    clusters
-  termsOfService: http://swagger.io/terms/
-  title: Caddy Config Manager API
-  version: "1.0"
+  contact: {}
 paths:
   /config:
     get:
@@ -74,7 +64,4 @@ paths:
       summary: Get all services
       tags:
       - services
-securityDefinitions:
-  BasicAuth:
-    type: basic
 swagger: "2.0"
