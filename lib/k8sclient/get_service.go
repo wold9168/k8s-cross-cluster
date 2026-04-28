@@ -44,8 +44,25 @@ func GetAllServicesInCurrentNamespace(clientset kubernetes.Interface, namespace 
 	}
 }
 
-// GetCurrentPodServiceClusterIP retrieves the ClusterIP of the Service that selects the current Pod
-// It uses the Pod's labels to find a matching Service in the same namespace
+// GetNamedServiceClusterIP retrieves the ClusterIP of a named Service in the current namespace.
+// This does not rely on label selectors, so it always returns the exact service specified by name.
+func GetNamedServiceClusterIP(clientset kubernetes.Interface, serviceName string) (string, error) {
+	namespace, err := GetCurrentNamespace()
+	if err != nil {
+		return "", fmt.Errorf("failed to get namespace: %w", err)
+	}
+
+	svc, err := clientset.CoreV1().Services(namespace).Get(context.TODO(), serviceName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get service %s/%s: %w", namespace, serviceName, err)
+	}
+
+	return svc.Spec.ClusterIP, nil
+}
+
+// Deprecated: GetCurrentPodServiceClusterIP uses label selectors to find a Service, which
+// can match multiple services when a pod is selected by more than one. Use
+// GetNamedServiceClusterIP to retrieve a specific named Service instead.
 func GetCurrentPodServiceClusterIP(clientset kubernetes.Interface) (string, error) {
 	// Get Pod name from environment variable
 	podName := os.Getenv("POD_NAME")

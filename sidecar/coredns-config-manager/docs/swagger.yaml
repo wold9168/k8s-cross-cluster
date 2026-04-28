@@ -1,5 +1,15 @@
+basePath: /
+host: localhost:8081
 info:
-  contact: {}
+  contact:
+    email: support@example.com
+    name: API Support
+    url: https://github.com/wold9168/k8s-cross-cluster
+  description: API for managing DNS configuration and service discovery in Kubernetes
+    clusters
+  termsOfService: http://swagger.io/terms/
+  title: CoreDNS Config Manager API
+  version: "1.0"
 paths:
   /allrecords:
     get:
@@ -82,4 +92,7 @@ paths:
       summary: Get all services in clusterset format
       tags:
       - services
+securityDefinitions:
+  BasicAuth:
+    type: basic
 swagger: "2.0"

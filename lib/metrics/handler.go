@@ -10,14 +10,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// Handler 提供 HTTP metrics 接口
+// Handler 提供 HTTP metrics 接口，支持 Prometheus 和 JSON 格式
 type Handler struct {
-	collector *MetricsCollector
+	collector prometheus.Collector
 	registry  *prometheus.Registry
 }
 
 // NewHandler 创建新的 HTTP handler
-func NewHandler(collector *MetricsCollector) *Handler {
+func NewHandler(collector prometheus.Collector) *Handler {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(collector)
 
@@ -54,11 +54,17 @@ func (h *Handler) servePrometheus(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) serveJSON(w http.ResponseWriter, r *http.Request) {
 	klog.V(4).Info("Serving metrics in JSON format")
 
-	metrics := h.collector.GetAllMetrics()
+	metrics, ok := h.collector.(interface {
+		GetAllMetrics() map[string]interface{}
+	})
+	if !ok {
+		http.Error(w, "JSON format not supported by this collector", http.StatusNotImplemented)
+		return
+	}
 
 	response := map[string]interface{}{
 		"timestamp": time.Now().Unix(),
-		"metrics":   metrics,
+		"metrics":   metrics.GetAllMetrics(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -69,12 +75,11 @@ func (h *Handler) serveJSON(w http.ResponseWriter, r *http.Request) {
 	if err := encoder.Encode(response); err != nil {
 		klog.Errorf("Failed to encode metrics as JSON: %v", err)
 		http.Error(w, "Failed to encode metrics", http.StatusInternalServerError)
-		return
 	}
 }
 
 // StartServer 启动 HTTP metrics 服务器
-func StartServer(addr string, collector *MetricsCollector) error {
+func StartServer(addr string, collector prometheus.Collector) error {
 	handler := NewHandler(collector)
 
 	mux := http.NewServeMux()

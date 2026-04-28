@@ -1,18 +1,8 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "API for managing Caddy configuration and service discovery in Kubernetes clusters",
-        "title": "Caddy Config Manager API",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "url": "https://github.com/wold9168/k8s-cross-cluster",
-            "email": "support@example.com"
-        },
-        "version": "1.0"
+        "contact": {}
     },
-    "host": "localhost:8091",
-    "basePath": "/",
     "paths": {
         "/config": {
             "get": {
@@ -108,11 +98,6 @@
                     }
                 }
             }
-        }
-    },
-    "securityDefinitions": {
-        "BasicAuth": {
-            "type": "basic"
         }
     }
 }
