@@ -4,10 +4,10 @@ go 1.25.3
 
 require (
 	github.com/prometheus/client_golang v1.23.2
-	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.6
 	github.com/wold9168/k8s-cross-cluster/lib/k8sclient v0.1.0
+	github.com/wold9168/k8s-cross-cluster/lib/metrics v0.0.0-00010101000000-000000000000
 	k8s.io/api v0.34.3
 	k8s.io/apimachinery v0.34.3
 	k8s.io/client-go v0.34.3
@@ -42,7 +42,6 @@ require (
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
@@ -53,6 +52,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/shirou/gopsutil/v3 v3.24.5 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
@@ -82,4 +82,7 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace github.com/wold9168/k8s-cross-cluster/lib/k8sclient => ../../lib/k8sclient
+replace (
+	github.com/wold9168/k8s-cross-cluster/lib/k8sclient => ../../lib/k8sclient
+	github.com/wold9168/k8s-cross-cluster/lib/metrics => ../../lib/metrics
+)

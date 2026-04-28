@@ -1,8 +1,12 @@
 package metrics
 
 import (
+	"fmt"
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
+
+	metricslib "github.com/wold9168/k8s-cross-cluster/lib/metrics"
 	"k8s.io/klog/v2"
 )
 
@@ -34,7 +38,7 @@ func Init() *Manager {
 }
 
 // GetCollector 获取指标收集器
-func (m *Manager) GetCollector() *MetricsCollector {
+func (m *Manager) GetCollector() prometheus.Collector {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.collector
@@ -47,10 +51,24 @@ func (m *Manager) UpdateDNSRecordCount(count int) {
 	m.collector.SetRecordCount(count)
 }
 
-// Start 启动 metrics HTTP 服务器
-func (m *Manager) Start(addr string) error {
+// UpdateServiceCount 更新服务数量
+func (m *Manager) UpdateServiceCount(count int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.collector.SetServiceCount(count)
+}
 
-	return StartServer(addr, m.collector)
+// UpdateClusterCount 更新集群数量
+func (m *Manager) UpdateClusterCount(count int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.collector.SetClusterCount(count)
+}
+
+// Start 启动 metrics HTTP 服务器
+func (m *Manager) Start(addr string) error {
+	if m.collector == nil {
+		return fmt.Errorf("collector not initialized")
+	}
+	return metricslib.StartServer(addr, m.collector)
 }

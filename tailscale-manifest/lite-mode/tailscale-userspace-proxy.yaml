@@ -28,16 +28,91 @@ spec:
       port: 10053
       targetPort: 10053
       protocol: UDP
-    - name: coredns-http
+    - name: coredns-config-manager-metrics
       port: 8080
       targetPort: 8080
-    - name: coredns-config-manager-metrics
+    - name: coredns-config-manager-svc
       port: 8081
       targetPort: 8081
     - name: caddy-config-manager-metrics
-      port: 8082
-      targetPort: 8082
+      port: 8090
+      targetPort: 8090
+    - name: caddy-config-manager-svc
+      port: 8091
+      targetPort: 8091
   type: ClusterIP  # 仅集群内可访问
+---
+# coredns-config-manager metrics —— NodePort 供集群外 Prometheus 拉取
+apiVersion: v1
+kind: Service
+metadata:
+  name: coredns-config-manager-metrics
+  namespace: default
+  labels:
+    name: k8s-cross-cluster
+spec:
+  selector:
+    app: tailscale-proxy
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+      nodePort: 30880
+  type: NodePort
+---
+# coredns-config-manager 服务发现 API —— NodePort 供集群外调试/跨集群发现
+apiVersion: v1
+kind: Service
+metadata:
+  name: coredns-config-manager-svc
+  namespace: default
+  labels:
+    name: k8s-cross-cluster
+spec:
+  selector:
+    app: tailscale-proxy
+  ports:
+    - name: svc
+      port: 8081
+      targetPort: 8081
+      nodePort: 30881
+  type: NodePort
+---
+# caddy-config-manager metrics —— NodePort 供集群外 Prometheus 拉取
+apiVersion: v1
+kind: Service
+metadata:
+  name: caddy-config-manager-metrics
+  namespace: default
+  labels:
+    name: k8s-cross-cluster
+spec:
+  selector:
+    app: tailscale-proxy
+  ports:
+    - name: metrics
+      port: 8090
+      targetPort: 8090
+      nodePort: 30890
+  type: NodePort
+---
+# caddy-config-manager API —— NodePort 供集群外调试
+apiVersion: v1
+kind: Service
+metadata:
+  name: caddy-config-manager-svc
+  namespace: default
+  labels:
+    name: k8s-cross-cluster
+spec:
+  selector:
+    app: tailscale-proxy
+  ports:
+    - name: svc
+      port: 8091
+      targetPort: 8091
+      nodePort: 30891
+  type: NodePort
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -127,9 +202,9 @@ spec:
               name: dns-udp
               protocol: UDP
             - containerPort: 8080
-              name: http
-            - containerPort: 8081
               name: metrics
+            - containerPort: 8081
+              name: svc
           volumeMounts:
             - name: tailscale-socket
               mountPath: /run/tailscale
@@ -158,6 +233,11 @@ spec:
         - name: caddy-config-manager
           image: ghcr.io/wold9168/k8s-cross-cluster/caddy-config-manager:latest
           imagePullPolicy: Always
+          ports:
+            - containerPort: 8090
+              name: metrics
+            - containerPort: 8091
+              name: svc
           volumeMounts:
             - name: shared-caddy-config
               mountPath: /config

@@ -1,11 +1,13 @@
 """Main installer logic for Tailscale Kubernetes manifests."""
 
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import List
 
 from .config import InstallerConfig
+from .headscale import HeadscaleClient
 from .kubectl import Kubectl
 
 
@@ -65,6 +67,19 @@ class TailscaleInstaller:
         self.config.validate()
         self.kubectl.check_available()
 
+    def _create_headscale_client(self) -> HeadscaleClient:
+        """Create the Headscale API client used for duplicate checks."""
+
+        if not self.config.effective_login_server:
+            raise ValueError("login_server is required")
+        if not self.config.headscale_api_key:
+            raise ValueError("headscale_api_key is required")
+
+        return HeadscaleClient(
+            base_url=self.config.effective_login_server,
+            api_key=self.config.headscale_api_key,
+        )
+
     def get_effective_context(self) -> str:
         """Get the effective Kubernetes context.
 
@@ -103,6 +118,22 @@ class TailscaleInstaller:
                 self._log(f"Found existing resource: {resource}")
 
         return existing
+
+    def ensure_headscale_node_available(self) -> None:
+        """Ensure Headscale does not already have a node with this hostname."""
+
+        if self.config.force:
+            self._log("Force installation enabled, skipping Headscale duplicate check")
+            return
+
+        client = self._create_headscale_client()
+        if client.node_exists(self.config.ts_hostname):
+            raise RuntimeError(
+                "Headscale already has a node named "
+                f"'{self.config.ts_hostname}'. Remove or rename the existing node, "
+                "or rerun with --force if you intentionally want to continue."
+            )
+        self._log(f"Headscale node name is available: {self.config.ts_hostname}")
 
     def _create_temp_file(self, content: str) -> str:
         """Create a temporary file with given content.
@@ -158,8 +189,6 @@ class TailscaleInstaller:
         Returns:
             Updated content
         """
-        import re
-
         if self.config.cluster_name:
             ts_hostname_line = f'  TS_HOSTNAME: "{self.config.ts_hostname}"'
             if "TS_HOSTNAME:" in content:
@@ -290,6 +319,10 @@ class TailscaleInstaller:
                 if response.lower() != "y":
                     print("Installation cancelled by user.")
                     return
+
+        # Check for duplicate node names in Headscale before applying manifests.
+        print(f"Checking Headscale for existing node: {self.config.ts_hostname}...")
+        self.ensure_headscale_node_available()
 
         # Apply RBAC
         print("Applying Tailscale RBAC resources...")
