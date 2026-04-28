@@ -160,10 +160,10 @@ func (dcm *DNSConfigManager) Sync(ctx context.Context) error {
 	}
 	klog.Infof("Current Pod IP: %s", podIP)
 
-	// Get Service ClusterIP
-	currentSvcClusterIP, err := k8sclient.GetCurrentPodServiceClusterIP(dcm.clientset)
+	// Get the tailscale-proxy Service ClusterIP
+	currentSvcClusterIP, err := k8sclient.GetNamedServiceClusterIP(dcm.clientset, TailscaleProxyService)
 	if err != nil {
-		klog.Warningf("Failed to get Service ClusterIP: %v", err)
+		klog.Warningf("Failed to get %s Service ClusterIP: %v", TailscaleProxyService, err)
 		currentSvcClusterIP = ""
 	} else {
 		currentSvcClusterIP += subdnsPort
