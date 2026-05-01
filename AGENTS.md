@@ -14,7 +14,7 @@
 - `sidecar/caddy-config-manager` 模块内可用 `make test` 和 `make binary-build`；`binary-build` 会产出 Linux 二进制 `caddy-config-manager`。
 
 ## Makefile 约定
-- 现有三个 Makefile 的默认目标都是 `help`；直接执行 `make` 只会显示帮助，不会自动测试或构建。
+- 现有两个 Makefile（根目录、`sidecar/caddy-config-manager/`）。无 `sidecar/coredns-config-manager/Makefile`；`tailscale-manifest/lite-mode/` 已迁移到 Justfile。
 - 根目录镜像构建默认使用 `TAG=$(git rev-parse HEAD)`、`REGISTRY=ghcr.io`；`REPO_NAME` 优先取 git remote 里的 GitHub 仓库名，取不到时回退为当前用户名。
 - `tailscale-manifest/lite-mode` 的单集群安装通过 `just install --authkey ... --login-server ...` 直接透传给 `uv run tailscale-install`；多集群批量安装用 `just install-all "ctx1:name1 ctx2:name2"`，需预先 `export TS_AUTHKEY TS_LOGIN_SERVER HEADSCALE_API_KEY`。
 - `tailscale-manifest/lite-mode` 的卸载用 `just uninstall ctx=...`（单集群）或 `just uninstall-all "ctx1:name1 cx2:name2"`（批量）。注意 `--login-server` 是 installer 的顶层参数，不要塞进 `--extra-args`。
@@ -31,57 +31,92 @@
 ## 生成文件
 - `sidecar/caddy-config-manager/docs/docs.go` 和 `sidecar/coredns-config-manager/docs/docs.go` 由 `swaggo/swag` 生成，不要手改。
 
-## Metrics 系统重构计划
+## Metrics 系统
 
-### 现状问题（按优先级）
-| # | 严重度 | 问题 | 影响范围 |
-|---|--------|------|----------|
-| 1 | 🔴高 | `GetAllMetrics()` 中 `gc_cycles` 始终为 0 — coredns 用 `debug.GCStats{}.NumGC`（零值结构体），JSON 输出永久错误；caddy 的 `getGCCycles()` 正确用了 `memStats.NumGC` | coredns |
-| 2 | 🔴高 | `go_threads` 指标语义错误 — 两个 sidecar 都用 `runtime.NumCgoCall()` 采集线程数，该函数返回 cgo 调用累计次数，不是 OS 线程数 | 两者 |
-| 3 | 🔴高 | 共享指标命名跨组件不一致 — `go_gc_cycles` vs `go_gc_cycles_total`，`cpu_context_switches` vs `cpu_context_switches_total`，`disk_iops` vs `disk_iops_total`，导致 dashboard/告警规则无法复用 | 两者 |
-| 4 | 🟡中 | `caddy_config_update_total` 是 Gauge 而非 Counter — 语义为单调递增的累计更新数，应用 Counter | caddy |
-| 5 | 🟡中 | coredns 计算了 service/cluster 数量但未暴露为 metrics — `Sync()` 中 `serviceCount`/`clusterCount` 仅写入日志 | coredns |
-| 6 | 🟡中 | caddy `Manager.Start()` 多余加锁 — `StartServer` 仅读取初始化后不可变的 `collector`，coredns 不加锁，行为不一致 | caddy |
-| 7 | 🟡中 | 两个 collector.go 文件 ~95% 代码重复（约 600 行通用收集逻辑），`loadAvgFromHost()` 完全相同，`prevCPUTimes` 字段两边都声明但从未使用 | 两者 |
-| 8 | 🟡中 | 两个 go.mod 的 `prometheus/client_golang` 版本不同（coredns v1.20.5，caddy v1.23.2） | 两者 |
-| 9 | 🟢低 | `/metrics` 端点无请求超时保护 | 两者 |
-| 10 | 🟢低 | `cpu_context_switches` 本质是累计值却设为 Gauge（边界模糊，可接受但非最佳实践） | 两者 |
-
-### 目标架构（重构后）
+### 架构（当前）
 ```
-lib/metrics/                           ← 新建共享包
-├── collector.go                       ← 通用指标收集器（Go runtime、CPU、memory、disk、network），实现 prometheus.Collector
-├── handler.go                         ← 通用 HTTP handler + StartServer()，支持 Prometheus 和 JSON 两种格式
-├── manager.go                         ← 通用 Manager 单例
-└── helpers.go                         ← loadAvgFromHost() 等工具函数
+lib/metrics/                           ← 共享包
+├── collector.go                       ← BaseCollector（Go runtime、CPU、memory、disk、network），实现 prometheus.Collector
+├── handler.go                         ← HTTP handler + StartServer()，支持 Prometheus/JSON 两种格式
+├── manager.go                         ← （死代码，未被 sidecar 引用）
+└── helpers.go                         ← loadAvgFromHost()
 
-sidecar/coredns-config-manager/metrics/  ← 仅保留业务相关代码
-├── collector.go                       ← 嵌入 lib/metrics.Collector，添加 dns_record_count、dns_service_count、dns_cluster_count
-└── manager.go                         ← Manager 适配层，暴露 UpdateDNSRecordCount / UpdateServiceClusterCount
+sidecar/coredns-config-manager/metrics/
+├── collector.go                       ← 嵌入 lib/metrics.BaseCollector，添加 dns_record_count、dns_service_count、dns_cluster_count
+├── manager.go                         ← 单例 Manager，暴露 UpdateDNSRecordCount / UpdateServiceCount / UpdateClusterCount / Start
+└── collector_test.go                  ← collector 单元测试
 
-sidecar/caddy-config-manager/metrics/   ← 仅保留业务相关代码
-├── collector.go                       ← 嵌入 lib/metrics.Collector，添加 caddy_config_update_total（Counter）、caddy_last_config_update_timestamp（Gauge）、caddy_service_count（Gauge）
-└── manager.go                         ← Manager 适配层，暴露 UpdateConfigUpdate / UpdateServiceCount
+sidecar/caddy-config-manager/metrics/
+├── collector.go                       ← 嵌入 lib/metrics.BaseCollector，添加 caddy_config_update_total（Counter）、caddy_last_config_update_timestamp、caddy_service_count
+└── manager.go                         ← 单例 Manager，暴露 UpdateConfigUpdate / UpdateServiceCount / Start
 ```
 
-### 实施步骤（按顺序，每步独立可验证）
-1. **创建 `lib/metrics` 共享包** — 提取通用 Collector（含所有 runtime/CPU/memory/disk/network 指标）、Handler、Manager、`loadAvgFromHost()`，统一指标命名（统一采用 `_total` 后缀版本）。修复 `go_threads` 语义（改用 `process.NumThreads()` 或 `runtime.GOMAXPROCS` + 文档说明 Go 无直接线程数 API）。
-2. **更新依赖版本** — 将两个 go.mod 中 `prometheus/client_golang` 统一到最新兼容版本（v1.23.2），`go mod tidy`。
-3. **重构 coredns metrics** — 删除原有 collector/handler/manager 中的通用部分，改为引用 `lib/metrics`，仅保留 `dns_record_count` 及新增 `dns_service_count`、`dns_cluster_count`。
-4. **重构 caddy metrics** — 删除原有通用部分，改为引用 `lib/metrics`，将 `caddy_config_update_total` 从 Gauge 改为 Counter，删除 `Manager.Start()` 中多余锁。
-5. **更新调用方** — 修改 `dns_config_manager.go` 的 `Sync()` 方法传入 `serviceCount`/`clusterCount`；验证 `app.go` 中 metrics 初始化路径不受影响。
-6. **更新测试并验证** — 运行所有现有 metrics 测试，修复可能因指标名变化导致的断言失败。
-7. **清理死代码** — 删除 `prevCPUTimes` 字段。
+### 已修复（重构完成）
+| # | 问题 | 修复内容 |
+|---|------|---------|
+| 1 | coredns JSON `gc_cycles` 始终为 0 | `debug.GCStats{}.NumGC` → `memStats.NumGC` |
+| 2 | `go_threads` 用 `runtime.NumCgoCall()` | 改用 `process.NumThreads()` |
+| 3 | 共享指标名不一致 | 统一 `_total` 后缀 |
+| 4 | `caddy_config_update_total` Gauge→Counter | 改为 `prometheus.NewCounter` |
+| 5 | coredns 未暴露 service/cluster count | 新增 `dns_service_count`、`dns_cluster_count` |
+| 6 | caddy `Manager.Start()` 多余锁 | 移除 |
+| 7 | collector 代码重复、`prevCPUTimes` 死代码、`loadAvgFromHost()` 重复 | 引入 `lib/metrics` 共享包 |
+| 8 | `prometheus/client_golang` 版本不一致 | 统一 v1.23.2 |
+
+### 现存问题（待修复）
+| # | 严重度 | 问题 | 位置 |
+|---|--------|------|------|
+| A | 🔴 | **caddy `caddy_config_update_total` Counter 值始终为 0** — `UpdateConfigUpdate()` 只递增内部 `configUpdateCountValue`，从未调 `ConfigUpdateCount.Inc()`，Prometheus 输出永为 0 | `sidecar/caddy-config-manager/metrics/collector.go:89-93` |
+| B | 🟡 | **`lib/metrics/manager.go` 是死代码** — `Manager`/`SetSetupFunc`/`Init()` 未被任何 sidecar 引用 | `lib/metrics/manager.go` |
+| C | 🟡 | **`lib/metrics` 无测试；caddy metrics 无测试文件** | `lib/metrics/`、`sidecar/caddy-config-manager/metrics/` |
+| D | 🟢 | `/metrics` 端点无请求超时保护 | `lib/metrics/handler.go` |
+| E | 🟢 | `cpu_context_switches_total` 本质是累计值却设为 Gauge（边界模糊，可接受但非最佳实践） | `lib/metrics/collector.go` |
 
 ### 验证命令
-- 共享包测试：`cd lib/metrics && go test -v ./...`
-- coredns 测试：`cd sidecar/coredns-config-manager && go test -v ./...`
-- caddy 测试：`cd sidecar/caddy-config-manager && go test -v ./...`
+- 共享包：`cd lib/metrics && go test -v ./...`
+- coredns：`cd sidecar/coredns-config-manager && go test -v ./...`
+- caddy：`cd sidecar/caddy-config-manager && go test -v ./...`
 - 根目录回归：`make test`
+
+## 其他现存问题
+
+| # | 严重度 | 问题 | 位置 |
+|---|--------|------|------|
+| F | 🔴 | **Service 不存在时 CoreDNS upstream 为空** — `GetNamedServiceClusterIP` 失败后 `currentSvcClusterIP=""`，`EnsureConfig` 会生成 `forward . ` 空上游，静默破坏 DNS 解析 | `dns_config_manager.go:164-176` |
+| G | 🟡 | **`GetNamedServiceClusterIP` 对 headless Service 返回 `"None"`** — 拼接端口后得到 `"None:10053"`，传给 CoreDNS 导致畸形转发地址 | `lib/k8sclient/get_service.go:49-61` |
+| H | 🟡 | **`GetNamedServiceClusterIP` 未校验空 `serviceName`** — 传空字符串会发出无效 K8s API 调用，返回隐晦错误 | `lib/k8sclient/get_service.go:49-61` |
+| I | 🟡 | **`getProcessThreadCount()` 出错返回 `-1`** — `-1` 被直接 Set 到 Gauge，产生语义误导 | `lib/metrics/collector.go:328-338` |
+| J | 🟡 | **`network_connections` 语义错误** — 用 `PacketsSent+PacketsRecv)/100` 冒充连接数，毫无意义 | `lib/metrics/collector.go:471` |
+| K | 🟡 | **`tcp_retransmit_rate` 实为输入错误率** — 用 `Errin`（接收错误）而非 TCP 重传段数 | `lib/metrics/collector.go:468-469` |
+| L | 🟡 | **caddy 服务发现始终查 `default` 命名空间** — `main.go` 获取了当前 namespace 但未传给 `NewServiceDiscovery`，非 default 命名空间会发现错误的服务 | `service_discovery.go:44` |
+| M | 🟡 | **根 `make test` 未覆盖 `lib/metrics`** — 缺少 `cd ./lib/metrics && go test -v ./...` | `Makefile:42-46` |
+| N | 🟡 | **`lib/tailscaled-client` 无测试** | `lib/tailscaled-client/` |
+| O | 🟡 | **`lib/k8sclient` 使用弃用 `io/ioutil`** — Go 1.16+ 应用 `os.ReadFile` | `lib/k8sclient/get_namespace.go:4,25` |
+| P | 🟡 | **caddy `constants.go` 未使用的常量** — `syncIntervalKey`、`caddyAdminPortKey` 定义了但从未引用 | `constants.go:8,21` |
+| Q | 🟡 | **9 个已弃用函数仍留在代码库中** — `GetCurrentPodServiceClusterIP`、`peer_processor.go`、`dns_updater.go`、`generate_*` 等仅被测试引用或完全无人调用 | 多处 |
+| R | 🟡 | **`apply-tailscale.sh` 与 Python 安装器功能重复** — 无 Headscale 去重检查，已过时 | `tailscale-manifest/lite-mode/` |
+| S | 🟢 | **YAML manifest `nodePort` 硬编码** — `30880`/`30881`/`30890`/`30891` 可能与集群其他 Service 冲突 | `tailscale-userspace-proxy.yaml` |
+| T | 🟢 | **YAML manifest 使用 `:latest` 镜像标签** — 生产应固定到 commit hash 或语义版本 | `tailscale-userspace-proxy.yaml:195,234` |
+| U | 🟢 | **`Justfile test-debian` 使用 `-it`** — 在 CI/非 TTY 环境下会失败 | `Justfile` |
+| V | 🟢 | **`disk`/`network` 共用单个 `prevTime`** — 耦合脆弱，若调用顺序改变会损坏变化率计算 | `lib/metrics/collector.go:370-490` |
+
+## 工程与 CI/构建
+
+| # | 严重度 | 问题 | 位置 |
+|---|--------|------|------|
+| W | 🔴 | **仓库根目录无 `.gitignore`** — Go 编译产物 (`*.o`/`*.a`/`.exe`)、IDE 文件 (`.idea/`/`.vscode/`)、二进制等可能被意外提交 | 根目录 |
+| X | 🔴 | **仓库根目录无 `.dockerignore`** — Docker 构建上下文包含整个仓库（含 `.venv`、`__pycache__`、测试缓存等），拖慢构建 | 根目录 |
+| Y | 🟡 | **`list/` 目录含 Python virtualenv 残留** — `bin/`、`lib/`、`lib64/`、`pyvenv.cfg` 被提交进仓库，.gitignore 虽写了 `*` 但这些文件早于 ignore 规则存在 | `tailscale-manifest/lite-mode/list/` |
+| Z | 🟡 | **CI 仅在 `snapshot`/`refactor-snapshot` 分支触发** — `dev`/`main` 分支的 push 不会触发构建 | `.github/workflows/docker-build.yml:6-7` |
+| AA | 🟡 | **CI 构建前不跑测试** — Docker build workflow 没有 `go test` 步骤，可能在 CI 中合入未通过测试的代码 | `.github/workflows/docker-build.yml` |
+| AB | 🟡 | **Go 版本不一致** — `lib/k8sclient/go.mod` 声明 `go 1.24.11`，其他所有模块和 Dockerfile 均为 `1.25.x` | `lib/k8sclient/go.mod:3` |
+| AC | 🟡 | **YAML manifest 镜像地址硬编码为个人账户** — `ghcr.io/wold9168/...:latest` 在其他开发者 fork 下不可用 | `tailscale-userspace-proxy.yaml:195,234` |
+| AD | 🟢 | **CI 使用 `docker buildx build --load`** — 只将镜像加载到本地 Docker daemon，`--push` 分两步执行，原子性差 | `Makefile:29` |
+| AE | 🟢 | **无 `.editorconfig`、无 `.golangci.yml`、无 `pre-commit` hook** — 缺少 IDE 间代码风格一致性、lint CI 门禁 | 根目录 |
 
 ## 易踩坑
 - `tailscale-manifest/lite-mode` 里的命令必须在该目录下执行。安装器和卸载器通过 `manifest_dir = "."` 从当前目录读取 YAML 清单。
-- 卸载行为以当前代码为准，不要只信 README 或 `Makefile` 帮助文案：`tailscale-manifest/lite-mode/src/tailscale_installer/cli.py` 里即使加了 `--uninstall`，`--authkey` 和 `--cluster-name` 仍然被标记为必填。
+- 卸载行为以当前代码为准：`tailscale-manifest/lite-mode/src/tailscale_installer/cli.py` 里即使加了 `--uninstall`，`--authkey` 和 `--cluster-name` 仍然被标记为必填。
 - `lib/k8sclient.GetConfigOutOfCluster()` 会调用全局 `flag.Parse()`；如果同一进程或同一个测试二进制里重复调用，需要显式处理 flag 状态。
 - Namespace 处理并不统一：`k8sclient.GetCurrentNamespace()` 会读取 `POD_NAMESPACE`，但 `sidecar/caddy-config-manager` 的服务发现如果没有接入 `WithNamespace(...)`，仍然默认查 `default` 命名空间。
 - 根目录 README 明确说明 `tailscale-manifest/lite-mode` 仍然是实验性功能，不要在业务集群上测试。
