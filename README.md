@@ -2,8 +2,6 @@
 
 基于 tailscale 为 k8s cluster 提供了一种 L5 的跨集群互联方案
 
-`tailscale-manifest/lite-mode` 目录下的安装脚本仍是实验性功能，请不要在业务集群上进行测试。
-
 ## 轻量模式与可行性验证
 
 ```bash
